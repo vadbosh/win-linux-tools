@@ -52,6 +52,7 @@
 | `wget` | `Invoke-WebRequest` PowerShell | Linux `wget` | Linux `wget` |
 | `find . -name "*.log"` | ошибка: `find.exe` Windows ищет текст | ошибка: `find.exe` Windows ищет текст | Linux `find` |
 | `sort`, `more`, `timeout`, `whoami`, `hostname` | программы Windows или команды PowerShell | программы Windows | Linux-утилиты |
+| `cat a.txt \| sort` — имя из Windows после `\|` или `&` | `Sort-Object` PowerShell | `sort.exe` Windows | PowerShell: Linux `sort`. cmd: Linux `sort` с [clink](#cmd-и-clink), без него — `sort.exe` Windows |
 | `grep`, `sed`, `awk`, `rg`, `fd`, `jq`, `bat`, `ll`, `mtr` | Linux-утилиты | Linux-утилиты | Linux-утилиты |
 | Что меняется в оболочках | ничего | ничего | блок в профиле PowerShell, макросы doskey в cmd |
 
@@ -65,7 +66,9 @@ Linux-утилиту, если она установлена. В cmd то же �
 позже — снова запустить скрипт с `-LinuxFirst`. `-Uninstall` убирает и блок,
 и макросы.
 
-**cmd и clink.** [clink](https://chrisant996.github.io/clink/) не обязателен.
+### cmd и clink
+
+[clink](https://chrisant996.github.io/clink/) не обязателен.
 Без него макрос doskey срабатывает только на первом слове строки: в
 `dir | sort` или `cd x & find . -name a` запустятся `sort.exe` и `find.exe` из
 Windows. Это касается только имён, которые есть и в Windows (`find`, `sort`,

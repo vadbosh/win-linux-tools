@@ -51,6 +51,7 @@ updates them and removes everything it added. No WSL, no BusyBox, no winget.
 | `wget` | PowerShell's `Invoke-WebRequest` | Linux `wget` | Linux `wget` |
 | `find . -name "*.log"` | error: Windows `find.exe` searches text | error: Windows `find.exe` searches text | Linux `find` |
 | `sort`, `more`, `timeout`, `whoami`, `hostname` | Windows programs or PowerShell commands | Windows programs | Linux tools |
+| `cat a.txt \| sort` — a Windows name after `\|` or `&` | PowerShell's `Sort-Object` | Windows `sort.exe` | PowerShell: Linux `sort`. cmd: Linux `sort` with [clink](#cmd-and-clink), Windows `sort.exe` without it |
 | `grep`, `sed`, `awk`, `rg`, `fd`, `jq`, `bat`, `ll`, `mtr` | Linux tools | Linux tools | Linux tools |
 | What changes in your shells | nothing | nothing | a block in the PowerShell profile, doskey macros in cmd |
 
@@ -64,7 +65,9 @@ Scripts (`.ps1`) do not load the profile and are not affected. To turn the
 mode on later, run the script again with `-LinuxFirst`. `-Uninstall` removes
 both the block and the macros.
 
-**cmd and clink.** [clink](https://chrisant996.github.io/clink/) is not
+### cmd and clink
+
+[clink](https://chrisant996.github.io/clink/) is not
 required. Without it, a doskey macro works only as the first word of a line:
 in `dir | sort` or `cd x & find . -name a` the Windows `sort.exe` and
 `find.exe` run. This applies only to names that Windows also has (`find`,
