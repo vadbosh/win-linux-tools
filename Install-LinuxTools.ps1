@@ -55,9 +55,13 @@
 
     The script records what it changes in
     %LOCALAPPDATA%\Install-LinuxTools\state.json. -Uninstall uses that file
-    and removes only what the script added: its packages except git, Scoop (if the
-    script installed it and Scoop has no other packages), the PowerShell
-    profile block, its part of the cmd AutoRun and the execution policy
+    and removes only what the script added: its packages except git, the
+    shims mtr, nc, ll, Scoop (if the script installed it and Scoop has no
+    other packages), the PowerShell profile blocks, its part of the cmd
+    AutoRun, LS_COLORS and EZA_COLORS, the lsd config.yaml, and the
+    execution policy change. In Far it removes its plugins NetBox and
+    IntChecker2, the FarColorer scheme and the far folder macro, and puts
+    back the Far settings, theme and FarColorer style it saved before the
     change. System components that the script installed stay: Visual C++
     and Npcap. Other programs can need them. git stays too: it can be in use
     for your own repositories (remove it with: scoop uninstall git).
