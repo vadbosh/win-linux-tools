@@ -181,8 +181,8 @@ With `-WithFar` the script installs Far Manager and sets it up:
   Far was in.
 
 The script saves the old values and `-Uninstall` puts them back. A plugin
-folder or a desktop shortcut that the script did not create is left alone. `-Update` updates Far and
-its plugins; it skips Far while Far is running.
+folder or a desktop shortcut that the script did not create is left alone.
+`-Update` updates Far and its plugins; it skips Far while Far is running.
 
 ## What else the script does
 
@@ -257,7 +257,8 @@ administrator rights.
 
 Tested on two machines. On Windows 11, under an account without
 administrator rights: install with `-WithFar` and `-WithNmap`, `-Update`,
-`-Uninstall`.
+`-Uninstall`, `-Uninstall -WithFar`, `-Uninstall -WithNmap`, the Far desktop
+shortcut.
 
 ## License
 
