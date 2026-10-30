@@ -183,7 +183,8 @@ Short names, in PowerShell and cmd, also without -LinuxFirst:
   mtr  runs trip through gsudo (asks for admin rights)     nc  runs ncat
   nmap, nping (with -WithNmap) also run through gsudo
   far  (with -WithFar) opens in the current folder, and when you quit it the
-       shell stays in the folder Far was in - like mc (PowerShell and cmd)
+       shell stays in the folder Far was in - like mc (PowerShell and cmd).
+       The desktop also gets a "Far Manager" shortcut.
   ll   runs lsd -lha --group-directories-first --date "+%F %R:%S" --icon never
 File colors in ll, eza, ls, fd: LS_COLORS and EZA_COLORS (readable folders
 and file types), set for your user unless you already have your own.
@@ -1138,7 +1139,37 @@ function Install-FarExtras {
     Install-FarTheme $far $State
     Install-FarColorerScheme $far $State
     Enable-FarVt $far $State
-    if (@($State.Packages) -contains 'far') { Install-FarLastDir $far $State }
+    if (@($State.Packages) -contains 'far') { Install-FarLastDir $far $State; Install-FarDesktopLink $State }
+}
+# Ярлык Far на рабочем столе. Цель - scoop\apps\far\current\Far.exe: путь
+# current Scoop переводит на новую версию, ярлык переживает -Update. Ярлык с
+# тем же именем, но не наш (нет State.FarDesktopLink), не трогается.
+function Get-FarDesktopLink { return (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Far Manager.lnk') }
+function Install-FarDesktopLink {
+    param($State)
+    $lnk = Get-FarDesktopLink
+    $exe = Join-Path $ScoopRoot 'apps\far\current\Far.exe'
+    if (-not (Test-Path -LiteralPath $exe)) { return }
+    if ((Test-Path -LiteralPath $lnk) -and -not $State.FarDesktopLink) { Ok "desktop shortcut - yours is there, left alone: $lnk"; return }
+    try {
+        $sc = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk)
+        $sc.TargetPath = $exe
+        $sc.WorkingDirectory = $env:USERPROFILE
+        $sc.IconLocation = "$exe,0"
+        $sc.Description = 'Far Manager (Install-LinuxTools)'
+        $sc.Save()
+    } catch { Warn "desktop shortcut for Far not created: $($_.Exception.Message)"; return }
+    if (-not $State.FarDesktopLink) { $State | Add-Member -NotePropertyName FarDesktopLink -NotePropertyValue $true -Force; Save-State $State }
+    Ok "desktop shortcut: $lnk"
+}
+function Remove-FarDesktopLink {
+    param($State)
+    if (-not $State.FarDesktopLink) { return @() }
+    $lnk = Get-FarDesktopLink
+    if (Test-Path -LiteralPath $lnk) { Remove-Item -LiteralPath $lnk -Force -ErrorAction SilentlyContinue }
+    if (Test-Path -LiteralPath $lnk) { Warn "could not remove $lnk"; return @() }
+    Ok "removed: $lnk"
+    return @('Far desktop shortcut')
 }
 # Выход из Far - в папку, где закрылся Far (как mc-wrapper в Linux). Программа
 # не может сменить папку оболочки, из которой её запустили, поэтому:
@@ -1571,6 +1602,7 @@ if ($Uninstall) {
     if ($st.ProfileBlock) { Remove-ProfileBlock; $removed += 'PowerShell profile block' }
     if ($st.CmdAutoRunSet) { Remove-CmdMacros $st; $removed += 'cmd macros' }
     if ($st.FarLastDir) { Remove-FarProfileBlock }
+    $removed += @(Remove-FarDesktopLink $st)
     $removed += @(Remove-LsColors $st)
     if (Get-Command scoop -ErrorAction SilentlyContinue) {
         $removed += @(Remove-FarExtras $st)

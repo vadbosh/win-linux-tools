@@ -174,9 +174,11 @@ With `-WithFar` the script installs Far Manager and sets it up:
   indent, Tab as spaces, cursor stops at the end of a line.
 - **Folder hand-over.** `far` opens in the current folder; after you quit,
   PowerShell or cmd stays in the folder Far was in, like `mc` in Linux.
+- **Desktop shortcut.** `Far Manager` on your desktop. It points to
+  `scoop\apps\far\current\Far.exe`, so it keeps working after `-Update`.
 
 The script saves the old values and `-Uninstall` puts them back. A plugin
-folder that the script did not create is left alone. `-Update` updates Far and
+folder or a desktop shortcut that the script did not create is left alone. `-Update` updates Far and
 its plugins; it skips Far while Far is running.
 
 ## What else the script does
@@ -206,6 +208,7 @@ The script changes only the environment of the Windows user who runs it:
 | PowerShell block, `far` function | `profile.ps1` files in the user's Documents folder |
 | cmd macros | `AutoRun` in `HKCU\Software\Microsoft\Command Processor` |
 | Far settings, plugins, theme | `persist\far` in the Scoop folder |
+| Far desktop shortcut | the user's Desktop |
 | lsd settings | `%APPDATA%\lsd\config.yaml` |
 | Execution policy | scope `CurrentUser` |
 | Record of changes | `%LOCALAPPDATA%\Install-LinuxTools\state.json` |
@@ -230,7 +233,7 @@ theme, and installs tools that were added to the script later.
 - its packages;
 - Scoop, if the script installed it and no other package is left in it;
 - the PowerShell profile block and the cmd macros;
-- the colors, the Far settings and plugins;
+- the colors, the Far settings, plugins and desktop shortcut;
 - the execution policy change.
 
 It keeps:
