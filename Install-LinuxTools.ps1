@@ -184,7 +184,8 @@ Short names, in PowerShell and cmd, also without -LinuxFirst:
   nmap, nping (with -WithNmap) also run through gsudo
   far  (with -WithFar) opens in the current folder, and when you quit it the
        shell stays in the folder Far was in - like mc (PowerShell and cmd).
-       The desktop also gets a "Far Manager" shortcut.
+       The desktop also gets a "Far Manager" shortcut: it opens PowerShell
+       and runs far, so after you quit Far the window stays open.
   ll   runs lsd -lha --group-directories-first --date "+%F %R:%S" --icon never
 File colors in ll, eza, ls, fd: LS_COLORS and EZA_COLORS (readable folders
 and file types), set for your user unless you already have your own.
@@ -1141,9 +1142,12 @@ function Install-FarExtras {
     Enable-FarVt $far $State
     if (@($State.Packages) -contains 'far') { Install-FarLastDir $far $State; Install-FarDesktopLink $State }
 }
-# Ярлык Far на рабочем столе. Цель - scoop\apps\far\current\Far.exe: путь
-# current Scoop переводит на новую версию, ярлык переживает -Update. Ярлык с
-# тем же именем, но не наш (нет State.FarDesktopLink), не трогается.
+# Ярлык Far на рабочем столе. Запускает не Far.exe, а PowerShell с командой
+# far: после выхода из Far (F10) окно остаётся, и оболочка - в папке, где
+# был Far (функция far из профиля). Far.exe напрямую закрыл бы окно вместе с
+# собой. Значок - из scoop\apps\far\current\Far.exe: путь current Scoop
+# переводит на новую версию. Ярлык с тем же именем, но не наш (нет
+# State.FarDesktopLink), не трогается.
 function Get-FarDesktopLink { return (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Far Manager.lnk') }
 function Install-FarDesktopLink {
     param($State)
@@ -1153,7 +1157,8 @@ function Install-FarDesktopLink {
     if ((Test-Path -LiteralPath $lnk) -and -not $State.FarDesktopLink) { Ok "desktop shortcut - yours is there, left alone: $lnk"; return }
     try {
         $sc = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk)
-        $sc.TargetPath = $exe
+        $sc.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $sc.Arguments = '-NoExit -Command far'
         $sc.WorkingDirectory = $env:USERPROFILE
         $sc.IconLocation = "$exe,0"
         $sc.Description = 'Far Manager (Install-LinuxTools)'

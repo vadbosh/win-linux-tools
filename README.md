@@ -174,8 +174,9 @@ With `-WithFar` the script installs Far Manager and sets it up:
   indent, Tab as spaces, cursor stops at the end of a line.
 - **Folder hand-over.** `far` opens in the current folder; after you quit,
   PowerShell or cmd stays in the folder Far was in, like `mc` in Linux.
-- **Desktop shortcut.** `Far Manager` on your desktop. It points to
-  `scoop\apps\far\current\Far.exe`, so it keeps working after `-Update`.
+- **Desktop shortcut.** `Far Manager` on your desktop opens PowerShell and
+  runs `far`. After you quit Far (F10), the window stays open in the folder
+  Far was in.
 
 The script saves the old values and `-Uninstall` puts them back. A plugin
 folder or a desktop shortcut that the script did not create is left alone. `-Update` updates Far and
