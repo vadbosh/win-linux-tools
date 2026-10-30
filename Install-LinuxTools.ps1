@@ -106,8 +106,9 @@
 [CmdletBinding(DefaultParameterSetName = 'Install')]
 param(
     [Parameter(ParameterSetName = 'Install')] [switch] $LinuxFirst,
-    [Parameter(ParameterSetName = 'Install')] [switch] $WithFar,
-    [Parameter(ParameterSetName = 'Install')] [switch] $WithNmap,
+    # С -Uninstall: удалить только Far и/или nmap
+    [Parameter(ParameterSetName = 'Install')] [Parameter(ParameterSetName = 'Uninstall')] [switch] $WithFar,
+    [Parameter(ParameterSetName = 'Install')] [Parameter(ParameterSetName = 'Uninstall')] [switch] $WithNmap,
     [Parameter(ParameterSetName = 'Update', Mandatory = $true)] [switch] $Update,
     [Parameter(ParameterSetName = 'Uninstall', Mandatory = $true)] [switch] $Uninstall,
     # без набора параметров: справка выводится и вместе с любым режимом
@@ -151,6 +152,9 @@ Options:
                  the tools that were added to this script later.
   -Uninstall     Remove everything that this script added. git stays:
                  remove it with  scoop uninstall git
+  -Uninstall -WithFar, -Uninstall -WithNmap
+                 Remove only Far (with its plugins, theme and settings) or
+                 only nmap. Everything else stays.
   -Help, --help  Show this help.
 '@
     Write-Host "`nDO YOU NEED -LinuxFirst?" -ForegroundColor $y
@@ -1598,6 +1602,53 @@ Start-Log
 # =============================================================================
 #  -Uninstall
 # =============================================================================
+# -Uninstall -WithFar / -WithNmap: убрать только это дополнение, остальное
+# остаётся. Far - с откатом его настроек, плагинов, темы, ярлыка и обёртки far;
+# nmap - с ярлыком nc. Npcap остаётся, как и при полном удалении.
+if ($Uninstall -and ($WithFar -or $WithNmap)) {
+    $ErrorActionPreference = 'Continue'
+    if (-not (Test-Path -LiteralPath $StateFile)) { Warn "Nothing recorded in $StateFile - nothing to roll back."; Finish 0 }
+    $st = Get-State
+    $removed = @(); $kept = @()
+    Say 'Rollback'
+    if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) { Warn 'Scoop not found - nothing to remove.'; Finish 1 }
+    foreach ($p in @($(if ($WithFar) { 'far' }), $(if ($WithNmap) { 'nmap' }) | Where-Object { $_ })) {
+        if (@($st.Packages) -notcontains $p) { Ok "$p - not installed by this script, left alone"; $kept += "$p (not installed by this script)"; continue }
+        if ($p -eq 'far') {
+            if (Test-FarRunning) { Warn 'far not removed: Far Manager is running. Close it and run the command again.'; continue }
+            $removed += @(Remove-FarExtras $st)
+            $removed += @(Remove-FarDesktopLink $st)
+            if ($st.FarLastDir) { Remove-FarProfileBlock }
+            # Записи о Far - прочь: следующий -WithFar поставит всё заново
+            foreach ($n in @($st.PSObject.Properties.Name | Where-Object { $_ -like 'Far*' })) { $st.PSObject.Properties.Remove($n) }
+            Remove-Item -LiteralPath (Join-Path $Home2 'far-before.farconfig') -Force -ErrorAction SilentlyContinue
+            Save-State $st
+            # Макрос far в cmd больше не нужен
+            if ($st.CmdAutoRunSet) {
+                if ($st.ProfileBlock) { Set-CmdMacros $st }
+                else { Remove-CmdMacros $st; $st.CmdAutoRunSet = $false; Save-State $st; $removed += 'cmd macros' }
+            }
+        }
+        if ($p -eq 'nmap' -and @($st.Shims) -contains 'nc') {
+            if (Test-Path -LiteralPath (Join-Path $ShimDir 'nc.shim')) { scoop shim rm nc 6>$null | Out-Null }
+            if (Test-Path -LiteralPath (Join-Path $ShimDir 'nc.shim')) { Warn 'nc - could not remove the shim' }
+            else { Ok 'removed: nc'; $removed += 'nc'; $st.Shims = @($st.Shims | Where-Object { $_ -ne 'nc' }); Save-State $st }
+        }
+        if ((Get-ScoopInstalled) -contains $p) { scoop uninstall $p | Out-Host }
+        if ((Get-ScoopInstalled) -contains $p) { Warn "$p - could not be removed, see the scoop messages above"; continue }
+        Ok "removed: $p"; $removed += $p
+        $st.Packages = @($st.Packages | Where-Object { $_ -ne $p }); Save-State $st
+        if ($p -eq 'far' -and (Test-Path -LiteralPath (Join-Path $ScoopRoot 'persist\far'))) {
+            $kept += "Far settings in $(Join-Path $ScoopRoot 'persist\far') (delete the folder to remove them)"
+        }
+        if ($p -eq 'nmap' -and @($st.SystemInstalled) -contains 'Npcap') { $kept += 'Npcap (system component; remove it in Windows Settings > Apps if needed)' }
+    }
+    Add-Step 90 'Open a new PowerShell or cmd window: old windows still have the old aliases'
+    Finish 0 @(
+        @{ Title = 'Removed'; Color = 'Green'; Items = $removed }
+        @{ Title = 'Kept';    Color = 'Gray';  Items = $kept }
+    )
+}
 if ($Uninstall) {
     $ErrorActionPreference = 'Continue'
     if (-not (Test-Path -LiteralPath $StateFile)) { Warn "Nothing recorded in $StateFile - nothing to roll back."; Finish 0 }

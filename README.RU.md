@@ -75,6 +75,7 @@ clink они работают и после `|` и `&`. Скрипты (`.ps1`) 
 | `-WithNmap` | Дополнительно ставит `nmap` и `ncat` (`nc`) с драйвером Npcap. |
 | `-Update` | Обновляет Scoop и все утилиты, которые поставил скрипт, и плагины Far. Доставляет утилиты, добавленные в скрипт позже. |
 | `-Uninstall` | Удаляет то, что добавил скрипт. git, Visual C++ и Npcap остаются. |
+| `-Uninstall -WithFar`, `-Uninstall -WithNmap` | Удаляет только Far или только nmap. Остальное остаётся. |
 | `-Help`, `--help` | Показывает справку. |
 
 Без `-WithFar` и `-WithNmap` Far и nmap не ставятся. Любой из этих ключей
@@ -91,6 +92,7 @@ clink они работают и после `|` и `&`. Скрипты (`.ps1`) 
 | Сканирование портов и netcat | `.\Install-LinuxTools.ps1 -WithNmap` |
 | Всё сразу | `.\Install-LinuxTools.ps1 -LinuxFirst -WithFar -WithNmap` |
 | Новые версии и утилиты, добавленные в скрипт позже | `.\Install-LinuxTools.ps1 -Update` |
+| Удалить только Far или только nmap | `.\Install-LinuxTools.ps1 -Uninstall -WithFar`, `-Uninstall -WithNmap` |
 | Удалить всё | `.\Install-LinuxTools.ps1 -Uninstall` |
 
 Если запуск скриптов запрещён или ты в cmd, начинай каждую команду с
@@ -240,7 +242,12 @@ clink они работают и после `|` и `&`. Скрипты (`.ps1`) 
 - цвета, настройки, плагины и ярлык Far;
 - изменение политики выполнения.
 
-Остаются:
+`-Uninstall -WithFar` удаляет только Far: пакет, его плагины, тему,
+настройки, ярлык на рабочем столе и переход в папку Far после выхода.
+`-Uninstall -WithNmap` удаляет только nmap и ярлык `nc`. Вернуть их — снова
+запустить скрипт с `-WithFar` или `-WithNmap`.
+
+После полного `-Uninstall` остаются:
 
 - **git**: он может быть нужен твоим репозиториям. Удалить —
   `scoop uninstall git`.

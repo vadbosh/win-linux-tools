@@ -74,6 +74,7 @@ with `-LinuxFirst`. `-Uninstall` removes both the block and the macros.
 | `-WithNmap` | Also installs `nmap` and `ncat` (`nc`) with the Npcap driver. |
 | `-Update` | Updates Scoop and every tool the script installed, Far plugins included. Installs tools that were added to the script later. |
 | `-Uninstall` | Removes what the script added. Keeps git, Visual C++ and Npcap. |
+| `-Uninstall -WithFar`, `-Uninstall -WithNmap` | Removes only Far or only nmap. Everything else stays. |
 | `-Help`, `--help` | Shows the help. |
 
 Without `-WithFar` and `-WithNmap`, Far and nmap are not installed. Add either
@@ -90,6 +91,7 @@ options do not need to be repeated. `-Update` does not add Far or nmap.
 | Port scans and netcat | `.\Install-LinuxTools.ps1 -WithNmap` |
 | Everything | `.\Install-LinuxTools.ps1 -LinuxFirst -WithFar -WithNmap` |
 | New versions, and tools added to the script later | `.\Install-LinuxTools.ps1 -Update` |
+| To remove only Far, or only nmap | `.\Install-LinuxTools.ps1 -Uninstall -WithFar`, `-Uninstall -WithNmap` |
 | To remove it all | `.\Install-LinuxTools.ps1 -Uninstall` |
 
 If running scripts is blocked, or you are in cmd, start each command with
@@ -237,7 +239,12 @@ theme, and installs tools that were added to the script later.
 - the colors, the Far settings, plugins and desktop shortcut;
 - the execution policy change.
 
-It keeps:
+`-Uninstall -WithFar` removes only Far: the package, its plugins, theme,
+settings, desktop shortcut and the `far` folder hand-over. `-Uninstall
+-WithNmap` removes only nmap and the `nc` shim. To get them back, run the
+script with `-WithFar` or `-WithNmap` again.
+
+Full `-Uninstall` keeps:
 
 - **git**: your repositories may need it. Remove it with `scoop uninstall git`.
 - **Visual C++ and Npcap**: other programs may need them.
