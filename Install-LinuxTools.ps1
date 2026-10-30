@@ -1060,7 +1060,7 @@ function Get-ColorerValues {
     param($Doc)
     $out = @{}
     foreach ($n in $ColorerWanted.Keys) {
-        $v = $Doc.SelectSingleNode("//plugin[@guid='$ColorerGuid']/hierarchicalconfig/key/value[@name='$n']")
+        $v = $Doc.DocumentElement.SelectSingleNode("pluginsconfig/plugin[@guid='$ColorerGuid']/hierarchicalconfig/key/value[@name='$n']")
         $out[$n] = if ($v) { $v.value } else { $null }
     }
     return $out
@@ -1068,27 +1068,25 @@ function Get-ColorerValues {
 # $Values: имя -> @(тип, значение)
 function Set-ColorerValues {
     param($Far, $Doc, [hashtable] $Values)
-    $parents = @($Doc.SelectNodes('//plugin') | ForEach-Object { $_.ParentNode } | Select-Object -Unique)
-    if (-not $parents.Count) { return $false }
+    # Far при -import читает настройки плагинов только из farconfig/pluginsconfig
+    # (far/configdb.cpp, config_provider::Import). Узлы plugin есть и в
+    # pluginhotkeys, а в свежем профиле pluginsconfig пуст - искать раздел по
+    # //plugin нельзя: настройки уходили не туда. В файле импорта - только он.
     $root = $Doc.DocumentElement
-    # Оставить только путь от корня до разделов с плагинами
-    $keep = @{}
-    foreach ($p in $parents) { $n = $p; while ($n -and $n -ne $root) { $keep[$n] = $true; $n = $n.ParentNode } }
-    foreach ($n in @($keep.Keys)) {
-        foreach ($c in @($n.ParentNode.ChildNodes)) { if (-not $keep[$c]) { [void]$n.ParentNode.RemoveChild($c) } }
+    $pc = $root.SelectSingleNode('pluginsconfig')
+    if (-not $pc) { $pc = $Doc.CreateElement('pluginsconfig') }
+    foreach ($c in @($root.ChildNodes)) { [void]$root.RemoveChild($c) }
+    [void]$root.AppendChild($pc)
+    foreach ($c in @($pc.ChildNodes)) { [void]$pc.RemoveChild($c) }
+    $pl = $Doc.CreateElement('plugin'); $pl.SetAttribute('guid', $ColorerGuid)
+    $hc = $Doc.CreateElement('hierarchicalconfig')
+    $k = $Doc.CreateElement('key'); $k.SetAttribute('name', $ColorerGuid); $k.SetAttribute('description', 'FarColorer')
+    foreach ($name in $Values.Keys) {
+        $v = $Doc.CreateElement('value')
+        $v.SetAttribute('name', $name); $v.SetAttribute('type', $Values[$name][0]); $v.SetAttribute('value', $Values[$name][1])
+        [void]$k.AppendChild($v)
     }
-    foreach ($p in $parents) {
-        foreach ($c in @($p.ChildNodes)) { [void]$p.RemoveChild($c) }
-        $pl = $Doc.CreateElement('plugin'); $pl.SetAttribute('guid', $ColorerGuid)
-        $hc = $Doc.CreateElement('hierarchicalconfig')
-        $k = $Doc.CreateElement('key'); $k.SetAttribute('name', $ColorerGuid); $k.SetAttribute('description', 'FarColorer')
-        foreach ($name in $Values.Keys) {
-            $v = $Doc.CreateElement('value')
-            $v.SetAttribute('name', $name); $v.SetAttribute('type', $Values[$name][0]); $v.SetAttribute('value', $Values[$name][1])
-            [void]$k.AppendChild($v)
-        }
-        [void]$hc.AppendChild($k); [void]$pl.AppendChild($hc); [void]$p.AppendChild($pl)
-    }
+    [void]$hc.AppendChild($k); [void]$pl.AppendChild($hc); [void]$pc.AppendChild($pl)
     $file = Join-Path $env:TEMP "ilt-far-colorer-$([guid]::NewGuid().ToString('N')).farconfig"
     try {
         $Doc.Save($file)
