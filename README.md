@@ -218,8 +218,9 @@ Windows 10 or 11 and Windows PowerShell 5.1 (built in). Internet access to
 GitHub, Scoop and Microsoft. Installing Visual C++ and Npcap asks for
 administrator rights.
 
-Tested on one Windows machine. Not tried yet: Windows 11, a full
-`-Uninstall`, and an account without administrator rights.
+Tested on two machines. On Windows 11, under an account without
+administrator rights: install with `-WithFar` and `-WithNmap`, `-Update`,
+`-Uninstall`.
 
 ## License
 
