@@ -42,15 +42,16 @@ updates them and removes everything it added. No WSL, no BusyBox, no winget.
 > the same tools. The mode decides which program opens when you type a name
 > that Windows already has: `ls`, `rm`, `find`, `curl`, `sort`.
 
-| You type | Without `-LinuxFirst` | With `-LinuxFirst` |
-|---|---|---|
-| `ls -la` in PowerShell | error: `ls` is PowerShell's `Get-ChildItem` | Linux `ls` |
-| `rm -rf dir` in PowerShell | error: `rm` is PowerShell's `Remove-Item` | Linux `rm` |
-| `curl`, `wget` in PowerShell | PowerShell's `Invoke-WebRequest` | Linux `curl`, `wget` |
-| `find . -name "*.log"` | error: Windows `find.exe` searches text | Linux `find` |
-| `sort`, `more`, `timeout`, `whoami`, `hostname` | Windows programs or PowerShell commands | Linux tools |
-| `grep`, `sed`, `awk`, `rg`, `fd`, `jq`, `bat`, `ll`, `mtr` | Linux tools | Linux tools |
-| What changes in your shells | nothing | a block in the PowerShell profile, doskey macros in cmd |
+| You type | Without `-LinuxFirst`, PowerShell | Without `-LinuxFirst`, cmd | With `-LinuxFirst`, PowerShell and cmd |
+|---|---|---|---|
+| `ls -la` | error: `ls` is PowerShell's `Get-ChildItem` | Linux `ls` | Linux `ls` |
+| `rm -rf dir` | error: `rm` is PowerShell's `Remove-Item` | Linux `rm` | Linux `rm` |
+| `curl` | PowerShell's `Invoke-WebRequest` | Windows `curl.exe` | Linux `curl` |
+| `wget` | PowerShell's `Invoke-WebRequest` | Linux `wget` | Linux `wget` |
+| `find . -name "*.log"` | error: Windows `find.exe` searches text | error: Windows `find.exe` searches text | Linux `find` |
+| `sort`, `more`, `timeout`, `whoami`, `hostname` | Windows programs or PowerShell commands | Windows programs | Linux tools |
+| `grep`, `sed`, `awk`, `rg`, `fd`, `jq`, `bat`, `ll`, `mtr` | Linux tools | Linux tools | Linux tools |
+| What changes in your shells | nothing | nothing | a block in the PowerShell profile, doskey macros in cmd |
 
 **Choose `-LinuxFirst`** if you type Linux commands by hand. **Skip it** if
 you are used to PowerShell's `ls` and `rm` and the Windows `find`, or if the

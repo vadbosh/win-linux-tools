@@ -43,15 +43,16 @@
 > откроется по имени, которое в Windows уже занято: `ls`, `rm`, `find`,
 > `curl`, `sort`.
 
-| Набираешь | Без `-LinuxFirst` | С `-LinuxFirst` |
-|---|---|---|
-| `ls -la` в PowerShell | ошибка: `ls` — это `Get-ChildItem` PowerShell | Linux `ls` |
-| `rm -rf dir` в PowerShell | ошибка: `rm` — это `Remove-Item` PowerShell | Linux `rm` |
-| `curl`, `wget` в PowerShell | `Invoke-WebRequest` PowerShell | Linux `curl`, `wget` |
-| `find . -name "*.log"` | ошибка: `find.exe` Windows ищет текст | Linux `find` |
-| `sort`, `more`, `timeout`, `whoami`, `hostname` | программы Windows или команды PowerShell | Linux-утилиты |
-| `grep`, `sed`, `awk`, `rg`, `fd`, `jq`, `bat`, `ll`, `mtr` | Linux-утилиты | Linux-утилиты |
-| Что меняется в оболочках | ничего | блок в профиле PowerShell, макросы doskey в cmd |
+| Набираешь | Без `-LinuxFirst`, PowerShell | Без `-LinuxFirst`, cmd | С `-LinuxFirst`, PowerShell и cmd |
+|---|---|---|---|
+| `ls -la` | ошибка: `ls` — это `Get-ChildItem` PowerShell | Linux `ls` | Linux `ls` |
+| `rm -rf dir` | ошибка: `rm` — это `Remove-Item` PowerShell | Linux `rm` | Linux `rm` |
+| `curl` | `Invoke-WebRequest` PowerShell | `curl.exe` Windows | Linux `curl` |
+| `wget` | `Invoke-WebRequest` PowerShell | Linux `wget` | Linux `wget` |
+| `find . -name "*.log"` | ошибка: `find.exe` Windows ищет текст | ошибка: `find.exe` Windows ищет текст | Linux `find` |
+| `sort`, `more`, `timeout`, `whoami`, `hostname` | программы Windows или команды PowerShell | программы Windows | Linux-утилиты |
+| `grep`, `sed`, `awk`, `rg`, `fd`, `jq`, `bat`, `ll`, `mtr` | Linux-утилиты | Linux-утилиты | Linux-утилиты |
+| Что меняется в оболочках | ничего | ничего | блок в профиле PowerShell, макросы doskey в cmd |
 
 **Бери `-LinuxFirst`**, если набираешь Linux-команды руками. **Не бери**, если
 привык к `ls` и `rm` из PowerShell и к `find` из Windows или хватает имён,
