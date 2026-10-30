@@ -59,10 +59,18 @@ you are used to PowerShell's `ls` and `rm` and the Windows `find`, or if the
 names that do not clash are enough.
 
 How it works: in PowerShell, a block in the profile replaces each alias with
-the Linux tool, if that tool is installed. In cmd, doskey macros do the same;
-with clink they also work after `|` and `&`. Scripts (`.ps1`) do not load the
-profile and are not affected. To turn the mode on later, run the script again
-with `-LinuxFirst`. `-Uninstall` removes both the block and the macros.
+the Linux tool, if that tool is installed. In cmd, doskey macros do the same.
+Scripts (`.ps1`) do not load the profile and are not affected. To turn the
+mode on later, run the script again with `-LinuxFirst`. `-Uninstall` removes
+both the block and the macros.
+
+**cmd and clink.** [clink](https://chrisant996.github.io/clink/) is not
+required. Without it, a doskey macro works only as the first word of a line:
+in `dir | sort` or `cd x & find . -name a` the Windows `sort.exe` and
+`find.exe` run. This applies only to names that Windows also has (`find`,
+`sort`, `more`, `timeout`, `whoami`, `hostname`, `curl`); the other tools work
+anywhere in the line. With clink the macros also work after `|` and `&`.
+Without it, use the full path: `dir | %USERPROFILE%\scoop\shims\sort.exe`.
 
 ## Options
 
