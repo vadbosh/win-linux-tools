@@ -18,6 +18,7 @@ updates them and removes everything it added. No WSL, no BusyBox, no winget.
 - [File colors](#file-colors)
 - [Far Manager](#far-manager)
 - [What else the script does](#what-else-the-script-does)
+- [Per user, not per computer](#per-user-not-per-computer)
 - [Update and removal](#update-and-removal)
 - [Requirements](#requirements)
 
@@ -193,6 +194,31 @@ its plugins; it skips Far while Far is running.
   repeats, and what to do by hand, in order.
 - **Record of changes.** What the script added is kept in
   `%LOCALAPPDATA%\Install-LinuxTools\state.json`. `-Uninstall` reads it.
+
+## Per user, not per computer
+
+The script changes only the environment of the Windows user who runs it:
+
+| What | Where |
+|---|---|
+| Scoop and the tools | `%USERPROFILE%\scoop`, or `%SCOOP%` if it is set |
+| `PATH`, `LS_COLORS`, `EZA_COLORS` | environment variables of the user |
+| PowerShell block, `far` function | `profile.ps1` files in the user's Documents folder |
+| cmd macros | `AutoRun` in `HKCU\Software\Microsoft\Command Processor` |
+| Far settings, plugins, theme | `persist\far` in the Scoop folder |
+| lsd settings | `%APPDATA%\lsd\config.yaml` |
+| Execution policy | scope `CurrentUser` |
+| Record of changes | `%LOCALAPPDATA%\Install-LinuxTools\state.json` |
+
+Other users of the computer get none of this. Each user runs the script in
+their own account and gets their own copy and settings. An administrator can
+still start a program by its full path, for example
+`C:\Users\<user>\scoop\apps\far\current\Far.exe`, but the commands and
+settings above are not set up for them.
+
+Two exceptions are installed for the whole computer and need administrator
+rights: the Visual C++ 2015–2022 runtime and the Npcap driver.
+`-Uninstall` keeps them.
 
 ## Update and removal
 
