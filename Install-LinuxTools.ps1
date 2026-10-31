@@ -1799,6 +1799,22 @@ function Remove-OhMyPosh {
 # после | и &. Запуск с cmd - clink autorun install (AutoRun в HKCU) из
 # apps\clink\current: путь current Scoop переводит на новую версию. Свой
 # clink в AutoRun (не из пакета скрипта) не трогается.
+# Окна cmd, в которые встроен clink: держат его DLL, настройки и историю
+function Get-ClinkCmdWindows {
+    return @(Get-Process cmd -ErrorAction SilentlyContinue | Where-Object { try { @($_.Modules | Where-Object { $_.ModuleName -like 'clink*' }).Count } catch { $false } })
+}
+# Перед удалением: Far и окна cmd с clink держат файлы. Тогда ничего не
+# менять и попросить закрыть - иначе часть останется, а полный -Uninstall
+# удалит state.json, и повторный запуск уже не будет знать, что доделать.
+function Assert-NothingBusy {
+    param($State, [switch] $Far, [switch] $Clink)
+    $busy = @()
+    if ($Far -and @($State.Packages) -contains 'far' -and (Test-FarRunning)) { $busy += 'Far Manager' }
+    if ($Clink -and @($State.Packages) -contains 'clink' -and (Get-ClinkCmdWindows).Count) { $busy += 'all cmd windows (clink runs in them)' }
+    if (-not $busy.Count) { return }
+    Warn "Close $($busy -join ' and '), then run the same command again from PowerShell - nothing was changed"
+    Finish 1
+}
 function Get-ClinkBat { return (Join-Path $ScoopRoot 'apps\clink\current\clink.bat') }
 function Get-CmdAutoRun { return "$((Get-ItemProperty -Path $CmdKey -Name AutoRun -ErrorAction SilentlyContinue).AutoRun)" }
 function Install-Clink {
@@ -1947,6 +1963,7 @@ if ($Uninstall -and ($WithFar -or $WithNmap -or $WithClink -or $WithOhMyPosh)) {
     $removed = @(); $kept = @()
     Say 'Rollback'
     if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) { Warn 'Scoop not found - nothing to remove.'; Finish 1 }
+    Assert-NothingBusy $st -Far:$WithFar -Clink:$WithClink
     # Список - по одному элементу: выражение @($(if ...), ... | Where-Object)
     # в Windows PowerShell 5.1 дало пустой список при -Uninstall -WithClink
     $parts = @()
@@ -2000,6 +2017,7 @@ if ($Uninstall) {
     $st = Get-State
     $removed = @(); $kept = @()
     Say 'Rollback'
+    Assert-NothingBusy $st -Far -Clink
     if ($st.ProfileBlock) { Remove-ProfileBlock; $removed += 'PowerShell profile block' }
     if ($st.CmdAutoRunSet) { Remove-CmdMacros $st; $removed += 'cmd macros' }
     if ($st.FarLastDir) { Remove-FarProfileBlock }
