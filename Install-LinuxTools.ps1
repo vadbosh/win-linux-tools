@@ -146,7 +146,7 @@ Options:
   -WithNmap      Also install nmap and ncat (nc) with the Npcap driver.
   -WithClink     Also install clink: bash-like editing in cmd, grey hints
                  from history (Right arrow accepts), Up/Down search history
-                 by the typed start, macros after | and &.
+                 by the typed start, Tab cycles matches, macros after | and &.
                  Without these two options Far and nmap are not installed.
                  Add either one at any time, for example:
                    .\Install-LinuxTools.ps1 -WithFar
@@ -1704,9 +1704,12 @@ function Install-Clink {
     Ok 'clink: starts with every cmd window, grey hints from history (Right arrow accepts)'
 }
 # Стрелки вверх/вниз в clink - история по набранному началу (как PgUp/PgDn;
-# пустая строка - вся история). Блок с метками - в первом найденном
+# пустая строка - вся история). Tab / Shift+Tab - следующее / предыдущее
+# совпадение прямо в строке, как в PowerShell и обычном cmd (без clink Tab
+# показывал бы список под строкой, как bash). Блок с метками - в первом найденном
 # .inputrc/_inputrc из порядка поиска clink (%CLINK_INPUTRC%, %USERPROFILE%,
 # %LOCALAPPDATA%, %APPDATA%), нет такого - в %USERPROFILE%\.inputrc.
+# Метка не меняется: по ней находится блок, записанный прошлыми версиями
 $InputrcBegin = '# >>> Install-LinuxTools: Up/Down search history by the typed start >>>'
 $InputrcEnd   = '# <<< Install-LinuxTools <<<'
 function Get-InputrcFile {
@@ -1726,11 +1729,12 @@ function Set-ClinkInputrc {
     param($State)
     $file = if ($State.ClinkInputrc) { $State.ClinkInputrc } else { Get-InputrcFile }
     Remove-InputrcBlock $file
-    $block = @($InputrcBegin, '$if clink', '"\e[A": history-search-backward', '"\e[B": history-search-forward', '$endif', $InputrcEnd) -join "`n"
+    $block = @($InputrcBegin, '$if clink', '"\e[A": history-search-backward', '"\e[B": history-search-forward',
+               '"\t": old-menu-complete', '"\e[Z": old-menu-complete-backward', '$endif', $InputrcEnd) -join "`n"
     $text = if (Test-Path -LiteralPath $file) { [IO.File]::ReadAllText($file).TrimEnd() + "`n`n" } else { '' }
     [IO.File]::WriteAllText($file, $text + $block + "`n")     # без BOM
     if ($State.ClinkInputrc -ne $file) { $State | Add-Member -NotePropertyName ClinkInputrc -NotePropertyValue $file -Force; Save-State $State }
-    Ok "clink: Up/Down search history by the typed start ($file)"
+    Ok "clink: Up/Down search history by the typed start, Tab cycles matches ($file)"
 }
 function Remove-Clink {
     param($State)
