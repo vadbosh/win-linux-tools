@@ -295,6 +295,11 @@ read-only). The history can hold passwords typed in commands, so `backup\` is
 in `.gitignore`. To get them back, run the
 script with `-WithFar` or `-WithNmap` again.
 
+Before it changes anything, `-Uninstall` checks for a running Far and for
+cmd windows with clink: they hold files, so the script stops and asks you to
+close them. Run it from PowerShell. That PowerShell window holds PSReadLine
+and PSFzf itself; they are removed when you close the window.
+
 Full `-Uninstall` keeps:
 
 - **git**: your repositories may need it. Remove it with `scoop uninstall git`.
@@ -307,10 +312,11 @@ GitHub, Scoop and Microsoft. Installing Visual C++ and Npcap asks for
 administrator rights.
 
 Tested on two machines. On Windows 11, under an account without
-administrator rights: install with `-WithFar` and `-WithNmap`, `-Update`,
-`-Uninstall`, `-Uninstall -WithFar`, `-Uninstall -WithNmap`, the Far desktop
-shortcut for PowerShell. Not tried yet: the `Far4CMD` shortcut, grey hints
-in PowerShell, `-WithClink`.
+administrator rights: install with every option, `-Update`, `-Uninstall`
+and `-Uninstall` of each add-on, the `Far4Pwsh` and `Far4CMD` shortcuts,
+grey hints in PowerShell and in cmd with clink, posh-git, fzf, oh-my-posh.
+Not tried yet: `mtr`, `nmap` and `nping` through gsudo, and the `far` folder
+hand-over in cmd typed by hand (through the `Far4CMD` shortcut it works).
 
 ## License
 
