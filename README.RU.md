@@ -67,6 +67,11 @@ Linux-утилиту, если она установлена. В cmd то же �
 стрелка вправо её принимает. В Windows PowerShell 5.1 встроен PSReadLine
 2.0, он так не умеет, поэтому скрипт ставит свежий PSReadLine с PSGallery
 для твоего пользователя. Свой PSReadLine 2.1+ скрипт не трогает.
+Ещё с `-LinuxFirst`: [posh-git](https://github.com/dahlbyk/posh-git)
+показывает в приглашении ветку и изменения git и дополняет команды git по Tab;
+[fzf](https://github.com/junegunn/fzf) с
+[PSFzf](https://github.com/kelleyma49/PSFzf) даёт Ctrl+R — нечёткий поиск по
+всей истории — и Ctrl+T — поиск файла с вставкой пути.
 Скрипты (`.ps1`) профиль не загружают, их режим не касается. Включить режим
 позже — снова запустить скрипт с `-LinuxFirst`. `-Uninstall` убирает и блок,
 и макросы.
@@ -162,6 +167,7 @@ F2 показывает все подсказки списком, стрелки
 | `ncat`, `nc` | Чтение и запись сетевых соединений, netcat *(с `-WithNmap`)* |
 | `far` | Двухпанельный файловый менеджер, как mc *(с `-WithFar`)* |
 | `clink` | Строка cmd как в bash *(с `-WithClink`)* |
+| `fzf` | Нечёткий поиск: Ctrl+R — история, Ctrl+T — файлы в PowerShell *(с `-LinuxFirst`)* |
 
 `tree` в Windows уже есть. Пакет Scoop и источник каждой утилиты:
 `Get-Help .\Install-LinuxTools.ps1 -Full`.
@@ -248,7 +254,7 @@ F2 показывает все подсказки списком, стрелки
 | Макросы cmd | `AutoRun` в `HKCU\Software\Microsoft\Command Processor` |
 | Настройки, плагины и тема Far | `persist\far` в папке Scoop |
 | Ярлыки Far | рабочий стол пользователя |
-| PSReadLine (с `-LinuxFirst`) | `WindowsPowerShell\Modules` в папке «Документы» пользователя |
+| PSReadLine, posh-git, PSFzf (с `-LinuxFirst`) | `WindowsPowerShell\Modules` в папке «Документы» пользователя |
 | Запуск clink с cmd | `AutoRun` в `HKCU\Software\Microsoft\Command Processor` |
 | Клавиши clink | блок с метками в `%USERPROFILE%\.inputrc` или в твоём `.inputrc` |
 | Настройки lsd | `%APPDATA%\lsd\config.yaml` |
@@ -273,7 +279,7 @@ F2 показывает все подсказки списком, стрелки
 
 - его пакеты;
 - Scoop, если его поставил скрипт и других пакетов в нём не осталось;
-- блок в профиле PowerShell, макросы cmd и поставленный им PSReadLine;
+- блок в профиле PowerShell, макросы cmd и поставленные им модули PowerShell;
 - clink, его запуск с cmd, его настройки и история (`%LOCALAPPDATA%\clink`);
 - цвета, настройки, плагины и ярлыки Far;
 - изменение политики выполнения.

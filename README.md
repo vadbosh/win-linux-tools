@@ -66,6 +66,11 @@ PowerShell also shows the rest of a matching command from history in grey;
 Right arrow accepts it. Windows PowerShell 5.1 comes with PSReadLine 2.0,
 which cannot do this, so the script installs the current PSReadLine from
 PSGallery for your user. A PSReadLine 2.1+ that you installed stays as it is.
+Also with `-LinuxFirst`: [posh-git](https://github.com/dahlbyk/posh-git) shows
+the git branch and changes in the prompt and completes git commands with Tab;
+[fzf](https://github.com/junegunn/fzf) with
+[PSFzf](https://github.com/kelleyma49/PSFzf) gives Ctrl+R, a fuzzy search over
+the whole history, and Ctrl+T, a file search that pastes the path.
 Scripts (`.ps1`) do not load the profile and are not affected. To turn the
 mode on later, run the script again with `-LinuxFirst`. `-Uninstall` removes
 both the block and the macros.
@@ -162,6 +167,7 @@ If running scripts is blocked, or you are in cmd, start each command with
 | `ncat`, `nc` | Read and write network connections, netcat *(with `-WithNmap`)* |
 | `far` | Two-panel file manager, like mc *(with `-WithFar`)* |
 | `clink` | Bash-like line editing in cmd *(with `-WithClink`)* |
+| `fzf` | Fuzzy finder: Ctrl+R history, Ctrl+T files in PowerShell *(with `-LinuxFirst`)* |
 
 `tree` is already in Windows. `Get-Help .\Install-LinuxTools.ps1 -Full`
 lists the Scoop package and the source of every tool.
@@ -245,7 +251,7 @@ The script changes only the environment of the Windows user who runs it:
 | cmd macros | `AutoRun` in `HKCU\Software\Microsoft\Command Processor` |
 | Far settings, plugins, theme | `persist\far` in the Scoop folder |
 | Far desktop shortcuts | the user's Desktop |
-| PSReadLine (with `-LinuxFirst`) | `WindowsPowerShell\Modules` in the user's Documents folder |
+| PSReadLine, posh-git, PSFzf (with `-LinuxFirst`) | `WindowsPowerShell\Modules` in the user's Documents folder |
 | clink start with cmd | `AutoRun` in `HKCU\Software\Microsoft\Command Processor` |
 | clink keys | a marked block in `%USERPROFILE%\.inputrc` or your existing `.inputrc` |
 | lsd settings | `%APPDATA%\lsd\config.yaml` |
@@ -271,7 +277,7 @@ theme, and installs tools that were added to the script later.
 
 - its packages;
 - Scoop, if the script installed it and no other package is left in it;
-- the PowerShell profile block, the cmd macros and the PSReadLine it installed;
+- the PowerShell profile block, the cmd macros and the PowerShell modules it installed;
 - clink, its start with cmd, its settings and history (`%LOCALAPPDATA%\clink`);
 - the colors, the Far settings, plugins and desktop shortcuts;
 - the execution policy change.

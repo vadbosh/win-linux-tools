@@ -170,8 +170,10 @@ Options:
     Windows programs: the system PATH comes before Scoop.
   With -LinuxFirst these names open the Linux tools: PowerShell gets a block
   in its profile, cmd gets doskey macros (with clink also after | and &).
-  PowerShell also gets grey hints from history (Right arrow accepts): the
-  script installs a newer PSReadLine from PSGallery for that. cmd without
+  PowerShell also gets grey hints from history (Right arrow accepts), git
+  branch and changes in the prompt (posh-git), Ctrl+R fuzzy history and
+  Ctrl+T file search (fzf, PSFzf): the script installs fzf from Scoop and
+  PSReadLine, posh-git, PSFzf from PSGallery for that. cmd without
   clink has no such hints: F8 completes from history, F7 lists it.
   Scripts (.ps1) do not load the profile and are not affected.
   -Uninstall removes both.
@@ -277,7 +279,7 @@ $ElevateShims = [ordered]@{ nmap = 'nmap'; nping = 'nmap' }
 # настройками). Командная строка Far: far [ключи] [путь_активной [путь_пассивной]]
 $AllPkgs = @('uutils-coreutils', 'uutils-findutils', 'grep', 'gawk', 'sed', 'less', 'jq', 'which', 'ripgrep', 'fd', 'lsd',
              'ugrep', 'bat', 'eza', 'dust', 'gdu', 'duf', 'bottom', 'procs', 'gsudo',
-             'far', 'bind', 'trippy', 'xh', 'curl', 'wget', 'whois', 'nmap', 'clink')
+             'far', 'bind', 'trippy', 'xh', 'curl', 'wget', 'whois', 'nmap', 'clink', 'fzf')
 
 # Far Manager: плагины с GitHub - последний релиз, файл x64, SHA-256 из поля
 # digest в GitHub API. ArcLite и FarColorer уже входят в сам Far.
@@ -1407,6 +1409,10 @@ function Add-ProfileBlock {
     }
     # Серая подсказка из истории, Right - принять (PSReadLine 2.1+)
     $lines += "if ((Get-Module PSReadLine).Version -ge [version]'2.1') { try { Set-PSReadLineOption -PredictionSource History; Set-PSReadLineOption -PredictionViewStyle InlineView } catch { } }"
+    # posh-git: ветка и изменения git в приглашении; PSFzf: Ctrl+R - история,
+    # Ctrl+T - файлы, через fzf
+    $lines += "Import-Module posh-git -ErrorAction SilentlyContinue"
+    $lines += "if (Get-Command fzf -ErrorAction SilentlyContinue) { Import-Module PSFzf -ErrorAction SilentlyContinue; if (Get-Command Set-PsFzfOption -ErrorAction SilentlyContinue) { Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r' } }"
     $lines += $End
     Remove-ProfileBlock
     foreach ($p in $Profiles) {
@@ -1640,51 +1646,74 @@ function Remove-LsColors {
 # скрипт мог быть запущен из pwsh 7 со своей папкой модулей. Свой PSReadLine
 # 2.1+ не трогается. State.PSReadLine - поставленные скриптом версии.
 $WinPs   = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-$PsrlDir = Join-Path $Docs 'WindowsPowerShell\Modules\PSReadLine'
-function Get-PsrlVersions {
-    if (-not (Test-Path -LiteralPath $PsrlDir)) { return @() }
-    return @(Get-ChildItem -LiteralPath $PsrlDir -Directory | ForEach-Object { try { [version]$_.Name } catch { } } | Sort-Object -Descending)
+$PsModDir = Join-Path $Docs 'WindowsPowerShell\Modules'
+# Модули PSGallery для -LinuxFirst: имя -> минимальная версия, которой
+# достаточно (свой модуль не ниже неё не трогается). posh-git - ветка и
+# изменения git в приглашении, Tab по командам git; PSFzf - Ctrl+R (история)
+# и Ctrl+T (файлы) через fzf (пакет Scoop fzf).
+$GalleryModules = [ordered]@{ 'PSReadLine' = '2.1'; 'posh-git' = '1.0'; 'PSFzf' = '2.0' }
+function Get-ModVersions {
+    param([string] $Name)
+    $d = Join-Path $PsModDir $Name
+    if (-not (Test-Path -LiteralPath $d)) { return @() }
+    return @(Get-ChildItem -LiteralPath $d -Directory | ForEach-Object { try { [version]$_.Name } catch { } } | Sort-Object -Descending)
 }
-function Install-PSReadLine {
-    param($State)
-    if (-not $State.PSObject.Properties['PSReadLine']) { $State | Add-Member -NotePropertyName PSReadLine -NotePropertyValue @() }
-    $before = Get-PsrlVersions
-    if ($before.Count -and $before[0] -ge [version]'2.1' -and -not @($State.PSReadLine | Where-Object { $_ }).Count) {
-        Ok "PSReadLine $($before[0]) - yours, left alone: grey hints from history in PowerShell"; return
-    }
-    $dir = $PsrlDir.Replace("'", "''")
+# Свои версии модуля: State.GalleryModules ("Имя/версия"), для PSReadLine
+# ещё State.PSReadLine (так записывали версии до 2026-10-31)
+function Get-OurModVersions {
+    param($State, [string] $Name)
+    $v = @($State.GalleryModules | Where-Object { $_ -like "$Name/*" } | ForEach-Object { $_.Split('/')[1] })
+    if ($Name -eq 'PSReadLine') { $v += @($State.PSReadLine | Where-Object { $_ }) }
+    return $v
+}
+function Install-GalleryModule {
+    param($State, [string] $Name, [version] $Min)
+    if (-not $State.PSObject.Properties['GalleryModules']) { $State | Add-Member -NotePropertyName GalleryModules -NotePropertyValue @() }
+    $before = Get-ModVersions $Name
+    if ($before.Count -and $before[0] -ge $Min -and -not (Get-OurModVersions $State $Name).Count) { Ok "$Name $($before[0]) - yours, left alone"; return }
+    $dir = (Join-Path $PsModDir $Name).Replace("'", "''")
     $cmd = "[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor 3072; `$ProgressPreference = 'SilentlyContinue'; " +
            "Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Scope CurrentUser -Force | Out-Null; " +
-           "`$v = (Find-Module PSReadLine -Repository PSGallery -ErrorAction Stop).Version; " +
-           "if (-not (Test-Path (Join-Path '$dir' `$v))) { Install-Module PSReadLine -RequiredVersion `$v -Repository PSGallery -Scope CurrentUser -Force -ErrorAction Stop }"
-    Write-Host '  ...  PSReadLine from PSGallery (grey hints from history in PowerShell)'
+           "`$v = (Find-Module $Name -Repository PSGallery -ErrorAction Stop).Version; " +
+           "if (-not (Test-Path (Join-Path '$dir' `$v))) { Install-Module $Name -RequiredVersion `$v -Repository PSGallery -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop }"
+    Write-Host "  ...  $Name from PSGallery"
     $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     try { $out = (& $WinPs -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command $cmd 2>&1 | Out-String).Trim() }
     finally { $ErrorActionPreference = $eap }
-    $after = Get-PsrlVersions
-    if (-not $after.Count -or $after[0] -lt [version]'2.1') {
-        Warn "PSReadLine not installed - no grey hints in PowerShell: $out"
-        Add-Step 60 'Grey hints from history in PowerShell: in Windows PowerShell run  Install-Module PSReadLine -Repository PSGallery -Scope CurrentUser -Force  then open a new window'
+    $after = Get-ModVersions $Name
+    if (-not $after.Count -or $after[0] -lt $Min) {
+        Warn "$Name not installed: $out"
+        Add-Step 60 "$Name for PowerShell: in Windows PowerShell run  Install-Module $Name -Repository PSGallery -Scope CurrentUser -Force  then open a new window"
         return
     }
-    $new = @($after | Where-Object { $before -notcontains $_ } | ForEach-Object { "$_" })
-    if ($new.Count) {
-        $State.PSReadLine = @(@($State.PSReadLine | Where-Object { $_ }) + $new); Save-State $State; $script:Changed = $true
-        Ok "PSReadLine $($after[0]): grey hints from history in PowerShell (Right arrow accepts; new windows)"
-    } else { Ok "PSReadLine $($after[0]) - up to date" }
+    $new = @($after | Where-Object { $before -notcontains $_ } | ForEach-Object { "$Name/$_" })
+    if ($new.Count) { $State.GalleryModules = @(@($State.GalleryModules | Where-Object { $_ }) + $new); Save-State $State; $script:Changed = $true; Ok "$Name $($after[0]) installed (new windows)" }
+    else { Ok "$Name $($after[0]) - up to date" }
 }
-function Remove-PSReadLine {
+# Серая подсказка из истории (PSReadLine 2.1+: Windows PowerShell 5.1
+# приходит с 2.0.0), posh-git, fzf + PSFzf - для -LinuxFirst. Модули ставит
+# отдельный powershell.exe -NoProfile в Documents\WindowsPowerShell\Modules
+# (как велят README PSReadLine и posh-git): скрипт мог быть запущен из pwsh 7.
+function Install-ShellModules {
+    param($State)
+    Install-ScoopPackage 'fzf' $null $State
+    foreach ($n in $GalleryModules.Keys) { Install-GalleryModule $State $n ([version]$GalleryModules[$n]) }
+}
+function Remove-ShellModules {
     param($State)
     $done = @()
-    foreach ($v in @($State.PSReadLine | Where-Object { $_ })) {
-        $d = Join-Path $PsrlDir $v
-        if (Test-Path -LiteralPath $d) { Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue }
-        if (Test-Path -LiteralPath $d) {
-            Warn "PSReadLine $v is in use by an open PowerShell window"
-            Add-Step 85 "Close all PowerShell windows, then in cmd:  rmdir /s /q `"$d`""
-        } else { Ok "removed: PSReadLine $v"; $done += "PSReadLine $v" }
+    foreach ($n in $GalleryModules.Keys) {
+        foreach ($v in @(Get-OurModVersions $State $n)) {
+            $d = Join-Path (Join-Path $PsModDir $n) $v
+            if (Test-Path -LiteralPath $d) { Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue }
+            if (Test-Path -LiteralPath $d) {
+                Warn "$n $v is in use by an open PowerShell window"
+                Add-Step 85 "Close all PowerShell windows, then in cmd:  rmdir /s /q `"$d`""
+            } else { Ok "removed: $n $v"; $done += "$n $v" }
+        }
+        $md = Join-Path $PsModDir $n
+        if ((Test-Path -LiteralPath $md) -and -not @(Get-ChildItem -LiteralPath $md -Force).Count) { Remove-Item -LiteralPath $md -Force -ErrorAction SilentlyContinue }
     }
-    if ((Test-Path -LiteralPath $PsrlDir) -and -not @(Get-ChildItem -LiteralPath $PsrlDir -Force).Count) { Remove-Item -LiteralPath $PsrlDir -Force -ErrorAction SilentlyContinue }
     return $done
 }
 # clink (-WithClink): bash-подобная строка в cmd - серая подсказка из
@@ -1894,7 +1923,7 @@ if ($Uninstall) {
     if ($st.FarLastDir) { Remove-FarProfileBlock }
     $removed += @(Remove-FarDesktopLink $st)
     $removed += @(Remove-LsColors $st)
-    $removed += @(Remove-PSReadLine $st)
+    $removed += @(Remove-ShellModules $st)
     if (Get-Command scoop -ErrorAction SilentlyContinue) {
         $removed += @(Remove-Clink $st)
         $removed += @(Remove-FarExtras $st)
@@ -1971,8 +2000,8 @@ if ($Update) {
     if ($st.CmdAutoRunSet -or $st.FarLastDir) { Set-CmdMacros $st }   # новые утилиты могли добавить имена
     if ($st.ProfileBlock) {
         # Блок профиля из прошлых версий скрипта - без серой подсказки
-        if (-not (Select-String -LiteralPath $Profiles[0] -SimpleMatch 'PredictionSource' -Quiet -ErrorAction SilentlyContinue)) { Add-ProfileBlock }
-        Install-PSReadLine $st
+        if (-not (Select-String -LiteralPath $Profiles[0] -SimpleMatch 'PSFzf' -Quiet -ErrorAction SilentlyContinue)) { Add-ProfileBlock }
+        Install-ShellModules $st
     }
     Say 'Check'
     $rows = Invoke-Check $st $(if ((Get-ScoopInstalled) -notcontains 'nmap') { @('nmap', 'ncat', 'nc') } else { @() })
@@ -2038,7 +2067,7 @@ Install-AllPackages $st '2/5 ' '3/5 ' -AddFar:$WithFar -AddNmap:$WithNmap -AddCl
 Say '4/5 Linux names first (PowerShell and cmd)'
 if ($LinuxFirst) {
     Add-ProfileBlock; $st.ProfileBlock = $true; Save-State $st
-    Install-PSReadLine $st
+    Install-ShellModules $st
 } else {
     Write-Host '  --   skipped (run with -LinuxFirst to make ls, cat, find, sort, mtr, nc... open the Linux tools)'
 }
