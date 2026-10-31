@@ -1692,6 +1692,9 @@ function Install-Clink {
     try {
         if ((Get-CmdAutoRun) -notmatch 'clink') { & $bat autorun install 2>&1 | Out-Null }
         & $bat set autosuggest.enable true 2>&1 | Out-Null
+        # Клавиши Windows (Tab, Ctrl+F, Ctrl+M...) - как ставит установщик clink
+        # с enhanced default settings
+        & $bat set clink.default_bindings windows 2>&1 | Out-Null
     } finally { $ErrorActionPreference = $eap }
     if ((Get-CmdAutoRun) -notmatch 'clink') {
         Warn 'clink is installed but not started with cmd'

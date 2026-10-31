@@ -83,7 +83,9 @@ Without it, use the full path: `dir | %USERPROFILE%\scoop\shims\sort.exe`.
 cmd without clink has no grey hints. Its own history keys: F8 completes the
 typed start from history (press again for older matches), F7 shows a list.
 `-WithClink` installs clink from Scoop, starts it with every cmd window
-(`clink autorun install`) and turns on its grey hints (`autosuggest.enable`).
+(`clink autorun install`), turns on its grey hints (`autosuggest.enable`) and
+Windows key bindings (`clink.default_bindings windows`, as clink's own
+installer does with enhanced defaults).
 In clink, Right arrow accepts the grey hint, F2 lists all hints, Up and
 Down search history by the typed start, and Tab puts the next matching
 command or file name into the line, Shift+Tab the previous one, as in
