@@ -207,6 +207,8 @@ With `-WithFar` the script installs Far Manager and sets it up:
   indent, Tab as spaces, cursor stops at the end of a line.
 - **Folder hand-over.** `far` opens in the current folder; after you quit,
   PowerShell or cmd stays in the folder Far was in, like `mc` in Linux.
+- **Backspace goes one folder up** in a panel when the command line is
+  empty, like in mc (a Far macro; Ctrl+PgUp does the same).
 - **Desktop shortcuts.** `Far4Pwsh` opens PowerShell and `Far4CMD` opens
   cmd; both run Far. After you quit Far (F10), the window stays open in the
   folder Far was in.

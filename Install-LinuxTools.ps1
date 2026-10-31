@@ -195,6 +195,7 @@ Short names, in PowerShell and cmd, also without -LinuxFirst:
   nmap, nping (with -WithNmap) also run through gsudo
   far  (with -WithFar) opens in the current folder, and when you quit it the
        shell stays in the folder Far was in - like mc (PowerShell and cmd).
+       Backspace in a Far panel (empty command line) goes one folder up.
        The desktop also gets two shortcuts, Far4Pwsh and Far4CMD: they open
        PowerShell or cmd and run far, so after you quit Far the window stays
        open in the folder Far was in.
@@ -1237,6 +1238,9 @@ function Remove-FarDesktopLink {
 # 2) обёртка far - функция в профиле PowerShell и макрос doskey в cmd -
 #    задаёт эту переменную, запускает Far и после выхода делает cd.
 # Панель плагина (архив, SFTP) не настоящая папка - тогда ничего не пишется.
+# В том же файле - Backspace на панели при пустой командной строке: на папку
+# вверх, как в mc (CmdLine.Empty - plugins/luamacro/api.lua). Набранная
+# команда стирается, как обычно.
 $FarLastDirMacro = @'
 -- Install-LinuxTools: on exit write the active panel folder for the shell wrapper "far"
 Event {
@@ -1248,6 +1252,14 @@ Event {
     local h = io.open(f, "w")
     if h then h:write(APanel.Path); h:close() end
   end;
+}
+
+-- Install-LinuxTools: Backspace in a panel with an empty command line goes one folder up, like mc
+Macro {
+  area = "Shell"; key = "BS";
+  description = "Install-LinuxTools: one folder up (Ctrl+PgUp)";
+  condition = function() return CmdLine.Empty end;
+  action = function() Keys("CtrlPgUp") end;
 }
 '@
 $FarBegin = '# >>> Install-LinuxTools: far opens and leaves in the current folder >>>'
