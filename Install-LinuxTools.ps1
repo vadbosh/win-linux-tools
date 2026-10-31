@@ -1811,7 +1811,14 @@ if ($Uninstall -and ($WithFar -or $WithNmap -or $WithClink)) {
     $removed = @(); $kept = @()
     Say 'Rollback'
     if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) { Warn 'Scoop not found - nothing to remove.'; Finish 1 }
-    foreach ($p in @($(if ($WithFar) { 'far' }), $(if ($WithNmap) { 'nmap' }), $(if ($WithClink) { 'clink' }) | Where-Object { $_ })) {
+    # Список - по одному элементу: выражение @($(if ...), ... | Where-Object)
+    # в Windows PowerShell 5.1 дало пустой список при -Uninstall -WithClink
+    $parts = @()
+    if ($WithFar)   { $parts += 'far' }
+    if ($WithNmap)  { $parts += 'nmap' }
+    if ($WithClink) { $parts += 'clink' }
+    Write-Host "  ...  remove only: $($parts -join ', ')"
+    foreach ($p in $parts) {
         if (@($st.Packages) -notcontains $p) { Ok "$p - not installed by this script, left alone"; $kept += "$p (not installed by this script)"; continue }
         if ($p -eq 'far') {
             if (Test-FarRunning) { Warn 'far not removed: Far Manager is running. Close it and run the command again.'; continue }
