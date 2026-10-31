@@ -152,7 +152,7 @@ If running scripts is blocked, or you are in cmd, start each command with
 | `eza`, `ll` | Another modern `ls`: tree view (`--tree`), git status of files; `ll` is the long listing |
 | `bat` | `cat` with syntax highlighting and line numbers |
 | `dust` | Which folders take the space, as a bar chart |
-| `gdu` | Disk usage you can browse and clean up interactively, like ncdu |
+| `gdu` | Disk usage you can browse and clean up interactively, like ncdu; the script sets its colors and a percentage next to the size bar |
 | `duf` | Free space on every disk, as a table (`df`) |
 | `btm` (bottom) | `top` with graphs: CPU, memory, network, processes |
 | `procs` | `ps` with readable columns and search |
