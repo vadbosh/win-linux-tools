@@ -321,9 +321,9 @@ administrator rights.
 Tested on two machines. On Windows 11, under an account without
 administrator rights: install with every option, `-Update`, `-Uninstall`
 and `-Uninstall` of each add-on, the `Far4Pwsh` and `Far4CMD` shortcuts,
-grey hints in PowerShell and in cmd with clink, posh-git, fzf, oh-my-posh.
-Not tried yet: `mtr`, `nmap` and `nping` through gsudo, and the `far` folder
-hand-over in cmd typed by hand (through the `Far4CMD` shortcut it works).
+grey hints in PowerShell and in cmd with clink, posh-git, fzf, oh-my-posh,
+`mtr`, `nmap` and `nping` through gsudo, the `far` folder hand-over in
+PowerShell and cmd.
 
 ## License
 

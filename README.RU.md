@@ -324,9 +324,8 @@ GitHub, Scoop и Microsoft. Установщики Visual C++ и Npcap запр�
 Проверено на двух машинах. На Windows 11 под учётной записью без прав
 администратора: установка со всеми ключами, `-Update`, `-Uninstall` и
 удаление каждого дополнения, ярлыки `Far4Pwsh` и `Far4CMD`, серые подсказки в
-PowerShell и в cmd с clink, posh-git, fzf, oh-my-posh. Пока не пробовали:
-`mtr`, `nmap` и `nping` через gsudo и переход в папку Far после `far`,
-набранного в cmd руками (через ярлык `Far4CMD` работает).
+PowerShell и в cmd с clink, posh-git, fzf, oh-my-posh, `mtr`, `nmap` и
+`nping` через gsudo, переход в папку Far после выхода в PowerShell и cmd.
 
 ## Лицензия
 
