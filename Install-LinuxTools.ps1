@@ -1618,6 +1618,9 @@ $GduConfigFile = Join-Path $env:USERPROFILE '.gdu.yaml'
 $GduConfigText = @'
 # Install-LinuxTools: gdu colors (Material, as the oh-my-posh prompt and Far)
 style:
+  # size bar from # instead of the partial blocks: Consolas in the classic
+  # console has no such characters and shows boxes with ?
+  use-old-size-bar: true
   selected-row:
     text-color: "#FFFFFF"
     background-color: "#4B5263"
