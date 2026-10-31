@@ -279,7 +279,10 @@ settings, desktop shortcuts and the `far` folder hand-over. `-Uninstall
 -WithNmap` removes only nmap and the `nc` shim. `-Uninstall -WithClink`
 removes clink completely: the package, its start with cmd, its keys in
 `.inputrc`, its settings and history; a clink that was there before the
-script stays. To get them back, run the
+script stays. The settings and history are first copied to
+`backup\clink_<date-time>` next to the script (to `%TEMP%` if that folder is
+read-only). The history can hold passwords typed in commands, so `backup\` is
+in `.gitignore`. To get them back, run the
 script with `-WithFar` or `-WithNmap` again.
 
 Full `-Uninstall` keeps:

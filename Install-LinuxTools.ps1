@@ -1753,9 +1753,23 @@ function Remove-Clink {
     Ok 'removed: clink from cmd AutoRun'
     $done = $keys + @('clink autorun')
     # Настройки и история clink (state directory из clink info): clink ставил
-    # скрипт - удаляются вместе с ним. Открытые окна cmd держат файлы.
+    # скрипт - удаляются вместе с ним. Открытые окна cmd держат файлы. Перед
+    # удалением - копия в backup\clink_<дата-время> рядом со скриптом (папка
+    # только для чтения - в %TEMP%); в истории могут быть пароли из команд,
+    # поэтому backup\ в .gitignore.
     $data = Join-Path $env:LOCALAPPDATA 'clink'
     if (Test-Path -LiteralPath $data) {
+        $copy = $null
+        foreach ($root in @((Join-Path (Split-Path -Parent $LogFile) 'backup'), (Join-Path $env:TEMP 'Install-LinuxTools-backup'))) {
+            $dest = Join-Path $root "clink_$(Get-Date -Format yyyyMMdd-HHmmss)"
+            try {
+                New-Item -ItemType Directory -Force -Path $dest -ErrorAction Stop | Out-Null
+                Copy-Item -Path (Join-Path $data '*') -Destination $dest -Recurse -Force -ErrorAction Stop
+                $copy = $dest; break
+            } catch { Remove-Item -LiteralPath $dest -Recurse -Force -ErrorAction SilentlyContinue }
+        }
+        if (-not $copy) { Warn "clink settings and history not removed: could not back them up ($data)"; return $done }
+        Ok "clink settings and history backed up: $copy"
         Remove-Item -LiteralPath $data -Recurse -Force -ErrorAction SilentlyContinue
         if (Test-Path -LiteralPath $data) {
             Warn "clink settings and history are in use: $data"

@@ -258,3 +258,7 @@ finding-*.md
 # Install-LinuxTools_<date-time>.log is written next to the script.
 *.jpg
 *.png
+
+# Backups the script makes next to itself: clink settings and command
+# history, which can hold passwords typed on the command line.
+backup/
