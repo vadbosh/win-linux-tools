@@ -1766,21 +1766,25 @@ $OmpTheme  = @'
     {
       "type": "prompt", "alignment": "left",
       "segments": [
-        { "type": "path", "style": "plain", "foreground": "#4FC1FF", "template": "{{ .Path }} ", "options": { "style": "full" } },
-        { "type": "git", "style": "plain", "foreground": "#A0A0A0",
-          "template": "{{ .HEAD }}{{ if .BranchStatus }} {{ .BranchStatus }}{{ end }}{{ if .Working.Changed }}<#FFAFD7> *{{ .Working.String }}</>{{ end }}{{ if .Staging.Changed }}<#A3BE8C> +{{ .Staging.String }}</>{{ end }} ",
+        { "type": "text", "style": "plain", "foreground": "#3DDC84", "template": "┌──" },
+        { "type": "session", "style": "plain", "foreground": "#42A5F5", "template": "{{ .UserName }}@{{ .HostName }} " },
+        { "type": "path", "style": "plain", "foreground": "#3DDC84", "template": "[{{ .Path }}] ", "options": { "style": "full" } },
+        { "type": "git", "style": "plain", "foreground": "#B39DDB",
+          "template": "| {{ .HEAD }}{{ if .BranchStatus }} {{ .BranchStatus }}{{ end }}{{ if .Working.Changed }}<#FF80AB> *{{ .Working.String }}</>{{ end }}{{ if .Staging.Changed }}<#69F0AE> +{{ .Staging.String }}</>{{ end }} ",
           "options": { "branch_icon": "", "branch_identical_icon": "", "branch_ahead_icon": "↑", "branch_behind_icon": "↓", "branch_gone_icon": "x",
                        "commit_icon": "@", "tag_icon": "#", "rebase_icon": "rebase ", "cherry_pick_icon": "pick ", "revert_icon": "revert ", "merge_icon": "merge ", "no_commits_icon": "no commits" } },
-        { "type": "executiontime", "style": "plain", "foreground": "#E5C07B", "template": "{{ .FormattedMs }} ", "options": { "style": "austin", "threshold": 2000 } }
+        { "type": "executiontime", "style": "plain", "foreground": "#FFB74D", "template": "{{ .FormattedMs }} ", "options": { "style": "austin", "threshold": 2000 } }
       ]
     },
     {
       "type": "prompt", "alignment": "left", "newline": true,
       "segments": [
-        { "type": "status", "style": "plain", "foreground": "#B48EAD", "foreground_templates": [ "{{ if gt .Code 0 }}#E06C75{{ end }}" ], "template": "> ", "options": { "always_enabled": true } }
+        { "type": "text", "style": "plain", "foreground": "#3DDC84", "template": "└─" },
+        { "type": "status", "style": "plain", "foreground": "#69F0AE", "foreground_templates": [ "{{ if gt .Code 0 }}#FF5252{{ end }}" ], "template": "❯ ", "options": { "always_enabled": true } }
       ]
     }
-  ]
+  ],
+  "transient_prompt": { "foreground": "#69F0AE", "foreground_templates": [ "{{ if gt .Code 0 }}#FF5252{{ end }}" ], "template": "❯ " }
 }
 '@
 function Remove-OmpBlock {
@@ -1800,7 +1804,14 @@ function Install-OhMyPosh {
     if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
     [IO.File]::WriteAllText($OmpConfig, $OmpTheme.Replace("`r`n", "`n"))     # без BOM
     $cfg = $OmpConfig.Replace("'", "''")
-    $lines = @($OmpBegin, "if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) { oh-my-posh init pwsh --config '$cfg' | Invoke-Expression }", $OmpEnd)
+    # Набираемая команда ярче: цвета PSReadLine (по умолчанию ключи и операторы
+    # тёмно-серые). Цвет - escape-последовательность 24 бит, как в теме
+    $psrl = "if ((Get-Module PSReadLine).Version -ge [version]'2.1') { `$e = [char]27; try { Set-PSReadLineOption -Colors @{ " +
+            "Command = `"`$e[38;2;255;213;79m`"; Parameter = `"`$e[38;2;176;190;197m`"; Operator = `"`$e[38;2;176;190;197m`"; " +
+            "String = `"`$e[38;2;128;203;196m`"; Variable = `"`$e[38;2;105;240;174m`"; Number = `"`$e[38;2;244;143;177m`"; " +
+            "Keyword = `"`$e[38;2;100;181;246m`"; Type = `"`$e[38;2;206;147;216m`"; Member = `"`$e[38;2;224;224;224m`"; " +
+            "Comment = `"`$e[38;2;129;199;132m`"; Default = `"`$e[38;2;238;238;238m`"; InlinePrediction = `"`$e[38;2;120;144;156m`" } } catch { } }"
+    $lines = @($OmpBegin, "if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) { oh-my-posh init pwsh --config '$cfg' | Invoke-Expression }", $psrl, $OmpEnd)
     Remove-OmpBlock
     foreach ($p in $Profiles) {
         $pd = Split-Path -Parent $p
