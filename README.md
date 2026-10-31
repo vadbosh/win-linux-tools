@@ -186,6 +186,12 @@ They work in PowerShell and cmd, also without `-LinuxFirst`.
 | `nmap`, `nping` | the same, through gsudo *(with `-WithNmap`)* |
 | `far` | Far opens in the current folder. After you quit Far, the shell stays in the folder Far was in *(with `-WithFar`)* |
 
+`ll` shows folders first, then files: attributes, size, date and time to the
+second, git status (`-M`, `N-`, … inside a repository), name. A `/` after a
+name marks a folder, `*` a program. Folders have no size: eza cannot add up a
+folder on Windows (`--total-size` works on Unix only); see folder sizes with
+`dust` or `gdu`.
+
 ## File colors
 
 `ll`, `eza`, `ls` and `fd` color names by type. Without settings, folders come
