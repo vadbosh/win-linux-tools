@@ -106,7 +106,7 @@ F2 показывает все подсказки списком, стрелки
 | **`-LinuxFirst`** | **Режим.** Ставит утилиты, и в PowerShell и cmd Linux-имена побеждают имена Windows: [подробно](#два-режима-с--linuxfirst-и-без). |
 | `-WithFar` | Дополнительно ставит Far Manager с плагинами, тёмной темой и настройками: [подробно](#far-manager). |
 | `-WithNmap` | Дополнительно ставит `nmap` и `ncat` (`nc`) с драйвером Npcap. |
-| `-WithOhMyPosh` | Дополнительно ставит oh-my-posh с темой приглашения, которой не нужен особый шрифт: [`themes/install-linuxtools.omp.json`](themes/install-linuxtools.omp.json). Поправь её и запусти `-Update`, чтобы применить. Другие темы oh-my-posh рисуют значки, им нужен [Nerd Font](https://www.nerdfonts.com/font-downloads), выбранный в терминале. |
+| `-WithOhMyPosh` | Дополнительно ставит oh-my-posh с темой приглашения, которой не нужен особый шрифт: [`themes/install-linuxtools.omp.json`](themes/install-linuxtools.omp.json). Поправь её и запусти `-Update`, чтобы применить. Если стоит и `-WithClink`, то же приглашение будет в cmd: [`themes/oh-my-posh.lua`](themes/oh-my-posh.lua) кладётся в `%LOCALAPPDATA%\clink`. Другие темы oh-my-posh рисуют значки, им нужен [Nerd Font](https://www.nerdfonts.com/font-downloads), выбранный в терминале. |
 | `-WithClink` | Дополнительно ставит [clink](#cmd-и-clink) для cmd: серые подсказки из истории, макросы после `\|` и `&`. |
 | `-Update` | Обновляет Scoop и все утилиты, которые поставил скрипт, и плагины Far. Доставляет утилиты, добавленные в скрипт позже. |
 | `-Uninstall` | Удаляет то, что добавил скрипт. git, Visual C++ и Npcap остаются. |

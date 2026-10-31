@@ -1763,6 +1763,33 @@ $OmpEnd    = '# <<< Install-LinuxTools: oh-my-posh <<<'
 # один - из репозитория на GitHub.
 $OmpThemeName = 'install-linuxtools.omp.json'
 $OmpThemeUrl  = "https://raw.githubusercontent.com/vadbosh/win-linux-tools/main/themes/$OmpThemeName"
+# oh-my-posh в cmd: если стоят и clink, и oh-my-posh скрипта - Lua-скрипт
+# themes\oh-my-posh.lua в папку clink (её state directory: clink грузит оттуда
+# *.lua). Чужой oh-my-posh.lua там не трогается.
+$ClinkOmpLua = Join-Path $env:LOCALAPPDATA 'clink\oh-my-posh.lua'
+function Set-ClinkOmp {
+    param($State)
+    if (-not ($State.OhMyPosh -and @($State.Packages) -contains 'clink' -and @($State.Packages) -contains 'oh-my-posh')) { return }
+    if ((Test-Path -LiteralPath $ClinkOmpLua) -and -not $State.ClinkOmp) { Ok "oh-my-posh in cmd - your $ClinkOmpLua is there, left alone"; return }
+    $local = Join-Path (Join-Path (Split-Path -Parent $LogFile) 'themes') 'oh-my-posh.lua'
+    try {
+        $lua = if (Test-Path -LiteralPath $local) { [IO.File]::ReadAllText($local) }
+               else { (Invoke-WebRequest -UseBasicParsing -Uri ($OmpThemeUrl -replace '[^/]+$', 'oh-my-posh.lua') -TimeoutSec 30).Content }
+    } catch { Warn "oh-my-posh in cmd: themes\oh-my-posh.lua not found next to the script and not downloaded: $($_.Exception.Message)"; return }
+    $dir = Split-Path -Parent $ClinkOmpLua
+    if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+    [IO.File]::WriteAllText($ClinkOmpLua, $lua.Replace("`r`n", "`n"))
+    if (-not $State.ClinkOmp) { $State | Add-Member -NotePropertyName ClinkOmp -NotePropertyValue $true -Force; Save-State $State }
+    Ok 'oh-my-posh in cmd (clink): the same prompt as in PowerShell (new cmd windows)'
+}
+function Remove-ClinkOmp {
+    param($State)
+    if (-not $State.ClinkOmp) { return @() }
+    Remove-Item -LiteralPath $ClinkOmpLua -Force -ErrorAction SilentlyContinue
+    $State.PSObject.Properties.Remove('ClinkOmp'); Save-State $State
+    Ok "removed: $ClinkOmpLua"
+    return @('oh-my-posh in cmd')
+}
 function Remove-OmpBlock {
     foreach ($p in $Profiles) {
         if (-not (Test-Path -LiteralPath $p)) { continue }
@@ -1803,6 +1830,7 @@ function Install-OhMyPosh {
     }
     if (-not $State.OhMyPosh) { $State | Add-Member -NotePropertyName OhMyPosh -NotePropertyValue $true -Force; Save-State $State; $script:Changed = $true }
     Ok 'oh-my-posh: PowerShell prompt with folder, git branch and changes, slow command time (new windows)'
+    Set-ClinkOmp $State
     Write-Host '  !!   oh-my-posh: the script theme uses plain characters. Other oh-my-posh themes draw icons' -ForegroundColor Yellow
     Write-Host '       and need a Nerd Font set in the terminal: https://www.nerdfonts.com/font-downloads' -ForegroundColor Yellow
     Write-Host '       (how to: https://ohmyposh.dev/docs/installation/fonts)' -ForegroundColor Yellow
@@ -1810,11 +1838,12 @@ function Install-OhMyPosh {
 function Remove-OhMyPosh {
     param($State)
     if (-not $State.OhMyPosh) { return @() }
+    $gone = @(Remove-ClinkOmp $State)
     Remove-OmpBlock
     Remove-Item -LiteralPath $OmpConfig -Force -ErrorAction SilentlyContinue
     $State.PSObject.Properties.Remove('OhMyPosh'); Save-State $State
     Ok 'removed: oh-my-posh prompt (profile block, theme)'
-    return @('oh-my-posh prompt')
+    return $gone + @('oh-my-posh prompt')
 }
 
 # clink (-WithClink): bash-подобная строка в cmd - серая подсказка из
@@ -1862,6 +1891,7 @@ function Install-Clink {
     # Свои макросы - первыми в AutoRun (clink мог переписать значение)
     if ($State.CmdAutoRunSet) { Set-CmdMacros $State }
     Set-ClinkInputrc $State
+    Set-ClinkOmp $State
     Ok 'clink: starts with every cmd window, grey hints from history (Right arrow accepts)'
 }
 # Стрелки вверх/вниз в clink - история по набранному началу (как PgUp/PgDn;
@@ -1900,8 +1930,8 @@ function Set-ClinkInputrc {
 function Remove-Clink {
     param($State)
     if (@($State.Packages) -notcontains 'clink') { return @() }
-    $keys = @()
-    if ($State.ClinkInputrc) { Remove-InputrcBlock $State.ClinkInputrc; Ok "removed: clink keys in $($State.ClinkInputrc)"; $keys = @('clink keys'); $State.PSObject.Properties.Remove('ClinkInputrc'); Save-State $State }
+    $keys = @(Remove-ClinkOmp $State)
+    if ($State.ClinkInputrc) { Remove-InputrcBlock $State.ClinkInputrc; Ok "removed: clink keys in $($State.ClinkInputrc)"; $keys += 'clink keys'; $State.PSObject.Properties.Remove('ClinkInputrc'); Save-State $State }
     $bat = Get-ClinkBat
     if ((Test-Path -LiteralPath $bat) -and (Get-CmdAutoRun) -match 'clink') {
         $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
