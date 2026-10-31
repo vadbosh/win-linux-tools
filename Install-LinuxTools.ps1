@@ -1610,22 +1610,30 @@ function Set-UserEnvColors {
 # %USERPROFILE%\.config\lsd, потом в %APPDATA%\lsd; есть свой - не трогать.
 $LsdConfigFile = Join-Path $env:APPDATA 'lsd\config.yaml'
 $LsdConfigText = "# Install-LinuxTools: lsd settings`nsymlink-arrow: `"$([char]0x21D2) link to`"`n"
-# gdu: цвета в %USERPROFILE%\.gdu.yaml (style, configuration.md gdu 5.38):
+# gdu: цвета в %USERPROFILE%\.gdu.yaml (style, configuration.md gdu 5.38).
+# Не стандартные цвета gdu (#2479D0, #E67100, #3498DB - их пишет
+# gdu --write-config), а палитра приглашения oh-my-posh и курсора Far:
 # только раздел style - остальное gdu берёт по умолчанию. Свой файл не трогать.
 $GduConfigFile = Join-Path $env:USERPROFILE '.gdu.yaml'
 $GduConfigText = @'
-# Install-LinuxTools: gdu colors
+# Install-LinuxTools: gdu colors (Material, as the oh-my-posh prompt and Far)
 style:
+  selected-row:
+    text-color: "#FFFFFF"
+    background-color: "#4B5263"
+  marked:
+    text-color: "#000000"
+    background-color: "#3DDC84"
   header:
     text-color: "#000000"
-    background-color: "#2479D0"
+    background-color: "#3DDC84"
   footer:
-    text-color: "#000000"
-    background-color: "#2479D0"
-    number-color: "#FFFFFF"
+    text-color: "#EEEEEE"
+    background-color: "#124B55"
+    number-color: "#FFD54F"
   result-row:
-    number-color: "#E67100"
-    directory-color: "#3498DB"
+    number-color: "#FFD54F"
+    directory-color: "#42A5F5"
 '@
 function Set-GduConfig {
     param($State)
