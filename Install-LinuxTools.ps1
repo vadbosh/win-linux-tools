@@ -1758,35 +1758,11 @@ function Remove-ShellModules {
 $OmpConfig = Join-Path $env:USERPROFILE '.config\oh-my-posh\install-linuxtools.omp.json'
 $OmpBegin  = '# >>> Install-LinuxTools: oh-my-posh prompt >>>'
 $OmpEnd    = '# <<< Install-LinuxTools: oh-my-posh <<<'
-$OmpTheme  = @'
-{
-  "$schema": "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json",
-  "version": 4,
-  "blocks": [
-    {
-      "type": "prompt", "alignment": "left",
-      "segments": [
-        { "type": "text", "style": "plain", "foreground": "#3DDC84", "template": "┌──" },
-        { "type": "session", "style": "plain", "foreground": "#42A5F5", "template": "{{ .UserName }}@{{ .HostName }} " },
-        { "type": "path", "style": "plain", "foreground": "#3DDC84", "template": "[{{ .Path }}] ", "options": { "style": "full" } },
-        { "type": "git", "style": "plain", "foreground": "#B39DDB",
-          "template": "| {{ .HEAD }}{{ if .BranchStatus }} {{ .BranchStatus }}{{ end }}{{ if .Working.Changed }}<#FF80AB> *{{ .Working.String }}</>{{ end }}{{ if .Staging.Changed }}<#69F0AE> +{{ .Staging.String }}</>{{ end }} ",
-          "options": { "branch_icon": "", "branch_identical_icon": "", "branch_ahead_icon": "↑", "branch_behind_icon": "↓", "branch_gone_icon": "x",
-                       "commit_icon": "@", "tag_icon": "#", "rebase_icon": "rebase ", "cherry_pick_icon": "pick ", "revert_icon": "revert ", "merge_icon": "merge ", "no_commits_icon": "no commits" } },
-        { "type": "executiontime", "style": "plain", "foreground": "#FFB74D", "template": "{{ .FormattedMs }} ", "options": { "style": "austin", "threshold": 2000 } }
-      ]
-    },
-    {
-      "type": "prompt", "alignment": "left", "newline": true,
-      "segments": [
-        { "type": "text", "style": "plain", "foreground": "#3DDC84", "template": "└─" },
-        { "type": "status", "style": "plain", "foreground": "#69F0AE", "foreground_templates": [ "{{ if gt .Code 0 }}#FF5252{{ end }}" ], "template": "❯ ", "options": { "always_enabled": true } }
-      ]
-    }
-  ],
-  "transient_prompt": { "foreground": "#69F0AE", "foreground_templates": [ "{{ if gt .Code 0 }}#FF5252{{ end }}" ], "template": "❯ " }
-}
-'@
+# Тема - файл репозитория themes\install-linuxtools.omp.json. Скрипт берёт
+# его из папки themes рядом с собой (клон репозитория), а если скрипт скачан
+# один - из репозитория на GitHub.
+$OmpThemeName = 'install-linuxtools.omp.json'
+$OmpThemeUrl  = "https://raw.githubusercontent.com/vadbosh/win-linux-tools/main/themes/$OmpThemeName"
 function Remove-OmpBlock {
     foreach ($p in $Profiles) {
         if (-not (Test-Path -LiteralPath $p)) { continue }
@@ -1802,7 +1778,13 @@ function Install-OhMyPosh {
     if ((Get-ScoopInstalled) -notcontains 'oh-my-posh') { return }
     $dir = Split-Path -Parent $OmpConfig
     if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
-    [IO.File]::WriteAllText($OmpConfig, $OmpTheme.Replace("`r`n", "`n"))     # без BOM
+    $local = Join-Path (Join-Path (Split-Path -Parent $LogFile) 'themes') $OmpThemeName
+    try {
+        if (Test-Path -LiteralPath $local) { $theme = [IO.File]::ReadAllText($local) }
+        else { $theme = (Invoke-WebRequest -UseBasicParsing -Uri $OmpThemeUrl -TimeoutSec 30).Content }
+        $null = $theme | ConvertFrom-Json
+    } catch { Warn "oh-my-posh theme not found next to the script (themes\$OmpThemeName) and not downloaded: $($_.Exception.Message)"; return }
+    [IO.File]::WriteAllText($OmpConfig, $theme.Replace("`r`n", "`n"))     # без BOM
     $cfg = $OmpConfig.Replace("'", "''")
     # Набираемая команда ярче: цвета PSReadLine (по умолчанию ключи и операторы
     # тёмно-серые). Цвет - escape-последовательность 24 бит, как в теме
