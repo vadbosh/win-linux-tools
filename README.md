@@ -270,13 +270,16 @@ theme, and installs tools that were added to the script later.
 - its packages;
 - Scoop, if the script installed it and no other package is left in it;
 - the PowerShell profile block, the cmd macros and the PSReadLine it installed;
-- clink and its start with cmd;
+- clink, its start with cmd, its settings and history (`%LOCALAPPDATA%\clink`);
 - the colors, the Far settings, plugins and desktop shortcuts;
 - the execution policy change.
 
 `-Uninstall -WithFar` removes only Far: the package, its plugins, theme,
 settings, desktop shortcuts and the `far` folder hand-over. `-Uninstall
--WithNmap` removes only nmap and the `nc` shim. To get them back, run the
+-WithNmap` removes only nmap and the `nc` shim. `-Uninstall -WithClink`
+removes clink completely: the package, its start with cmd, its keys in
+`.inputrc`, its settings and history; a clink that was there before the
+script stays. To get them back, run the
 script with `-WithFar` or `-WithNmap` again.
 
 Full `-Uninstall` keeps:

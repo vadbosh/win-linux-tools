@@ -1750,7 +1750,19 @@ function Remove-Clink {
     }
     if ((Get-CmdAutoRun) -match 'clink') { Warn 'clink is still in cmd AutoRun'; Add-Step 80 'Remove clink from cmd: in cmd run  clink autorun uninstall' ; return @() }
     Ok 'removed: clink from cmd AutoRun'
-    return @('clink autorun')
+    $done = @('clink autorun')
+    # Настройки и история clink (state directory из clink info): clink ставил
+    # скрипт - удаляются вместе с ним. Открытые окна cmd держат файлы.
+    $data = Join-Path $env:LOCALAPPDATA 'clink'
+    if (Test-Path -LiteralPath $data) {
+        Remove-Item -LiteralPath $data -Recurse -Force -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $data) {
+            Warn "clink settings and history are in use: $data"
+            Add-Step 85 "Close all cmd windows, then in PowerShell:  Remove-Item -Recurse -Force `"$data`""
+        } else { Ok "removed: clink settings and history ($data)"; $done += 'clink settings and history' }
+    }
+    Add-Step 90 'cmd windows that are open now keep clink until you close them'
+    return $done
 }
 
 # Far и nmap - по выбору: ставятся по -WithFar/-WithNmap; уже стоящие
