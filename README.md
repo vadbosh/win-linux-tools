@@ -168,7 +168,7 @@ If running scripts is blocked, or you are in cmd, start each command with
 | `ncat`, `nc` | Read and write network connections, netcat *(with `-WithNmap`)* |
 | `far` | Two-panel file manager, like mc *(with `-WithFar`)* |
 | `clink` | Bash-like line editing in cmd *(with `-WithClink`)* |
-| `oh-my-posh` | Two-line PowerShell prompt `┌──user@host [folder] \| branch` / `└─❯` in Material colors, brighter colors of the typed command; no special font *(with `-WithOhMyPosh`)* |
+| `oh-my-posh` | Two-line PowerShell prompt `┌──user@host [folder] \| branch` / `└─ >` in Material colors, brighter colors of the typed command; no special font *(with `-WithOhMyPosh`)* |
 | `fzf` | Fuzzy finder: Ctrl+R history, Ctrl+T files in PowerShell *(with `-LinuxFirst`)* |
 
 `tree` is already in Windows. `Get-Help .\Install-LinuxTools.ps1 -Full`
