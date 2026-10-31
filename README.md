@@ -256,6 +256,7 @@ The script changes only the environment of the Windows user who runs it:
 | PSReadLine, posh-git, PSFzf (with `-LinuxFirst`) | `WindowsPowerShell\Modules` in the user's Documents folder |
 | clink start with cmd | `AutoRun` in `HKCU\Software\Microsoft\Command Processor` |
 | clink keys | a marked block in `%USERPROFILE%\.inputrc` or your existing `.inputrc` |
+| gdu colors | `%USERPROFILE%\.gdu.yaml` (only if you have none) |
 | lsd settings | `%APPDATA%\lsd\config.yaml` |
 | Execution policy | scope `CurrentUser` |
 | Record of changes | `%LOCALAPPDATA%\Install-LinuxTools\state.json` |

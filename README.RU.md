@@ -259,6 +259,7 @@ F2 показывает все подсказки списком, стрелки
 | PSReadLine, posh-git, PSFzf (с `-LinuxFirst`) | `WindowsPowerShell\Modules` в папке «Документы» пользователя |
 | Запуск clink с cmd | `AutoRun` в `HKCU\Software\Microsoft\Command Processor` |
 | Клавиши clink | блок с метками в `%USERPROFILE%\.inputrc` или в твоём `.inputrc` |
+| Цвета gdu | `%USERPROFILE%\.gdu.yaml` (только если своего нет) |
 | Настройки lsd | `%APPDATA%\lsd\config.yaml` |
 | Политика выполнения | область `CurrentUser` |
 | Учёт изменений | `%LOCALAPPDATA%\Install-LinuxTools\state.json` |

@@ -1610,6 +1610,30 @@ function Set-UserEnvColors {
 # %USERPROFILE%\.config\lsd, потом в %APPDATA%\lsd; есть свой - не трогать.
 $LsdConfigFile = Join-Path $env:APPDATA 'lsd\config.yaml'
 $LsdConfigText = "# Install-LinuxTools: lsd settings`nsymlink-arrow: `"$([char]0x21D2) link to`"`n"
+# gdu: цвета в %USERPROFILE%\.gdu.yaml (style, configuration.md gdu 5.38):
+# только раздел style - остальное gdu берёт по умолчанию. Свой файл не трогать.
+$GduConfigFile = Join-Path $env:USERPROFILE '.gdu.yaml'
+$GduConfigText = @'
+# Install-LinuxTools: gdu colors
+style:
+  header:
+    text-color: "#000000"
+    background-color: "#2479D0"
+  footer:
+    text-color: "#000000"
+    background-color: "#2479D0"
+    number-color: "#FFFFFF"
+  result-row:
+    number-color: "#E67100"
+    directory-color: "#3498DB"
+'@
+function Set-GduConfig {
+    param($State)
+    if ((Test-Path -LiteralPath $GduConfigFile) -and -not $State.GduConfig) { Ok "gdu config - your own file is there, left alone: $GduConfigFile"; return }
+    [IO.File]::WriteAllText($GduConfigFile, $GduConfigText.Replace("`r`n", "`n"))     # без BOM
+    if (-not $State.GduConfig) { $State | Add-Member -NotePropertyName GduConfig -NotePropertyValue $true -Force; Save-State $State }
+    Ok "gdu colors: $GduConfigFile"
+}
 function Set-LsdConfig {
     param($State)
     $own = @((Join-Path $env:USERPROFILE '.config\lsd\config.yaml'), $LsdConfigFile) | Where-Object { Test-Path -LiteralPath $_ }
@@ -1625,6 +1649,7 @@ function Set-LsColors {
     Set-UserEnvColors $State 'LS_COLORS' $LsColorsValue
     Set-UserEnvColors $State 'EZA_COLORS' $EzaColorsValue
     if ((Get-ScoopInstalled) -contains 'lsd') { Set-LsdConfig $State }
+    if ((Get-ScoopInstalled) -contains 'gdu') { Set-GduConfig $State }
 }
 function Remove-LsColors {
     param($State)
@@ -1634,6 +1659,10 @@ function Remove-LsColors {
         if (-not $State.$flag) { continue }
         [Environment]::SetEnvironmentVariable($n, $null, 'User')
         Ok "removed: $n"; $done += $n
+    }
+    if ($State.GduConfig -and (Test-Path -LiteralPath $GduConfigFile)) {
+        Remove-Item -LiteralPath $GduConfigFile -Force -ErrorAction SilentlyContinue
+        Ok "removed: $GduConfigFile"; $done += 'gdu config'
     }
     if ($State.LsdConfig -and (Test-Path -LiteralPath $LsdConfigFile)) {
         Remove-Item -LiteralPath $LsdConfigFile -Force -ErrorAction SilentlyContinue
