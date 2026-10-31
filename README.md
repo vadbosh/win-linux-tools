@@ -180,7 +180,7 @@ They work in PowerShell and cmd, also without `-LinuxFirst`.
 
 | Name | Runs |
 |---|---|
-| `ll` | `lsd -lha --group-directories-first --date "+%F %R:%S" --icon never` |
+| `ll` | `lsd -lha --group-directories-first --date "+%F %R:%S" --icon never --blocks size,date,name,permission` |
 | `mtr` | `trip` through gsudo: it needs administrator rights and asks for them |
 | `nc` | `ncat` |
 | `nmap`, `nping` | the same, through gsudo *(with `-WithNmap`)* |

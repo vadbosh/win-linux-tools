@@ -180,7 +180,7 @@ F2 показывает все подсказки списком, стрелки
 
 | Имя | Что запускает |
 |---|---|
-| `ll` | `lsd -lha --group-directories-first --date "+%F %R:%S" --icon never` |
+| `ll` | `lsd -lha --group-directories-first --date "+%F %R:%S" --icon never --blocks size,date,name,permission` |
 | `mtr` | `trip` через gsudo: ему нужны права администратора, он их запросит |
 | `nc` | `ncat` |
 | `nmap`, `nping` | их же, через gsudo *(с `-WithNmap`)* |

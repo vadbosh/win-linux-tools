@@ -45,6 +45,7 @@
     Microsoft, after it checks the signature. It does this right after it
     installs each package. mtr, nc and ll are Scoop shims that run trip,
     ncat and lsd -lha --group-directories-first --date "+%F %R:%S"
+    --blocks size,date,name,permission
     --icon never - in PowerShell and cmd, also without -LinuxFirst. For nmap it opens the Npcap
     installer. At the end it lists, step by step, what it could not install.
     Without Visual C++ 2015-2022 x64 most tools do not start. If the script
@@ -205,7 +206,7 @@ Short names, in PowerShell and cmd, also without -LinuxFirst:
        The desktop also gets two shortcuts, Far4Pwsh and Far4CMD: they open
        PowerShell or cmd and run far, so after you quit Far the window stays
        open in the folder Far was in.
-  ll   runs lsd -lha --group-directories-first --date "+%F %R:%S" --icon never
+  ll   runs lsd -lha --group-directories-first --date "+%F %R:%S" --icon never --blocks size,date,name,permission
 File colors in ll, eza, ls, fd: LS_COLORS and EZA_COLORS (readable folders
 and file types), set for your user unless you already have your own.
 Full table with sources:  Get-Help .\Install-LinuxTools.ps1 -Full
@@ -273,7 +274,7 @@ $ToolPkg = @{
 $Aliases = [ordered]@{
     mtr = @{ Tool = 'trip'; Args = ''; Elevate = $true }
     nc  = @{ Tool = 'ncat'; Args = '' }
-    ll  = @{ Tool = 'lsd';  Args = '-lha --group-directories-first --date "+%F %R:%S" --icon never' }
+    ll  = @{ Tool = 'lsd';  Args = '-lha --group-directories-first --date "+%F %R:%S" --icon never --blocks size,date,name,permission' }
 }
 # Ярлыки пакетов, которым без прав администратора не работать (raw-сокеты):
 # скрипт пускает их через gsudo - только если пакет поставил он сам
