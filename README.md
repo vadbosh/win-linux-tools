@@ -187,9 +187,9 @@ With `-WithFar` the script installs Far Manager and sets it up:
   indent, Tab as spaces, cursor stops at the end of a line.
 - **Folder hand-over.** `far` opens in the current folder; after you quit,
   PowerShell or cmd stays in the folder Far was in, like `mc` in Linux.
-- **Desktop shortcut.** `Far Manager` on your desktop opens PowerShell and
-  runs `far`. After you quit Far (F10), the window stays open in the folder
-  Far was in.
+- **Desktop shortcuts.** `Far4Pwsh` opens PowerShell and `Far4CMD` opens
+  cmd; both run Far. After you quit Far (F10), the window stays open in the
+  folder Far was in.
 
 The script saves the old values and `-Uninstall` puts them back. A plugin
 folder or a desktop shortcut that the script did not create is left alone.
@@ -222,7 +222,7 @@ The script changes only the environment of the Windows user who runs it:
 | PowerShell block, `far` function | `profile.ps1` files in the user's Documents folder |
 | cmd macros | `AutoRun` in `HKCU\Software\Microsoft\Command Processor` |
 | Far settings, plugins, theme | `persist\far` in the Scoop folder |
-| Far desktop shortcut | the user's Desktop |
+| Far desktop shortcuts | the user's Desktop |
 | lsd settings | `%APPDATA%\lsd\config.yaml` |
 | Execution policy | scope `CurrentUser` |
 | Record of changes | `%LOCALAPPDATA%\Install-LinuxTools\state.json` |
@@ -247,11 +247,11 @@ theme, and installs tools that were added to the script later.
 - its packages;
 - Scoop, if the script installed it and no other package is left in it;
 - the PowerShell profile block and the cmd macros;
-- the colors, the Far settings, plugins and desktop shortcut;
+- the colors, the Far settings, plugins and desktop shortcuts;
 - the execution policy change.
 
 `-Uninstall -WithFar` removes only Far: the package, its plugins, theme,
-settings, desktop shortcut and the `far` folder hand-over. `-Uninstall
+settings, desktop shortcuts and the `far` folder hand-over. `-Uninstall
 -WithNmap` removes only nmap and the `nc` shim. To get them back, run the
 script with `-WithFar` or `-WithNmap` again.
 
@@ -269,7 +269,7 @@ administrator rights.
 Tested on two machines. On Windows 11, under an account without
 administrator rights: install with `-WithFar` and `-WithNmap`, `-Update`,
 `-Uninstall`, `-Uninstall -WithFar`, `-Uninstall -WithNmap`, the Far desktop
-shortcut.
+shortcut for PowerShell. Not tried yet: the `Far4CMD` shortcut.
 
 ## License
 

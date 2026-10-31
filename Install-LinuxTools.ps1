@@ -188,8 +188,9 @@ Short names, in PowerShell and cmd, also without -LinuxFirst:
   nmap, nping (with -WithNmap) also run through gsudo
   far  (with -WithFar) opens in the current folder, and when you quit it the
        shell stays in the folder Far was in - like mc (PowerShell and cmd).
-       The desktop also gets a "Far Manager" shortcut: it opens PowerShell
-       and runs far, so after you quit Far the window stays open.
+       The desktop also gets two shortcuts, Far4Pwsh and Far4CMD: they open
+       PowerShell or cmd and run far, so after you quit Far the window stays
+       open in the folder Far was in.
   ll   runs lsd -lha --group-directories-first --date "+%F %R:%S" --icon never
 File colors in ll, eza, ls, fd: LS_COLORS and EZA_COLORS (readable folders
 and file types), set for your user unless you already have your own.
@@ -1146,39 +1147,67 @@ function Install-FarExtras {
     Enable-FarVt $far $State
     if (@($State.Packages) -contains 'far') { Install-FarLastDir $far $State; Install-FarDesktopLink $State }
 }
-# Ярлык Far на рабочем столе. Запускает не Far.exe, а PowerShell с командой
-# far: после выхода из Far (F10) окно остаётся, и оболочка - в папке, где
-# был Far (функция far из профиля). Far.exe напрямую закрыл бы окно вместе с
-# собой. Значок - из scoop\apps\far\current\Far.exe: путь current Scoop
-# переводит на новую версию. Ярлык с тем же именем, но не наш (нет
-# State.FarDesktopLink), не трогается.
-function Get-FarDesktopLink { return (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Far Manager.lnk') }
+# Ярлыки Far на рабочем столе: Far4Pwsh (PowerShell) и Far4CMD (cmd). Оба
+# запускают не Far.exe, а оболочку: после выхода из Far (F10) окно остаётся,
+# и оболочка - в папке, где был Far. Far.exe напрямую закрыл бы окно вместе с
+# собой. PowerShell зовёт функцию far из профиля. В cmd макрос doskey far
+# срабатывает только на набранное руками, не на /k, поэтому ярлык cmd сам
+# выполняет те же команды, что макрос (Set-CmdMacros). Значок - из
+# scoop\apps\far\current\Far.exe: путь current Scoop переводит на новую
+# версию. Ярлык с тем же именем, но не наш (нет в State.FarDesktopLinks), не
+# трогается. "Far Manager.lnk" - имя до 2026-10-31 (State.FarDesktopLink).
+$FarLegacyLink = 'Far Manager.lnk'
+function Get-FarDesktopLinks {
+    $f = '%TEMP%\far-lastdir.txt'
+    $cmdArgs = "/k set `"FAR_LASTDIR_FILE=$f`" & del `"$f`" 2>nul & `"$ShimDir\far.exe`" & set `"FAR_LASTDIR_FILE=`" & if exist `"$f`" for /f `"usebackq delims=`" %d in (`"$f`") do cd /d `"%d`""
+    return [ordered]@{
+        'Far4Pwsh.lnk' = @{ Exe = 'System32\WindowsPowerShell\v1.0\powershell.exe'; Args = '-NoExit -Command far'; Desc = 'Far Manager in PowerShell (Install-LinuxTools)' }
+        'Far4CMD.lnk'  = @{ Exe = 'System32\cmd.exe'; Args = $cmdArgs; Desc = 'Far Manager in cmd (Install-LinuxTools)' }
+    }
+}
 function Install-FarDesktopLink {
     param($State)
-    $lnk = Get-FarDesktopLink
-    $exe = Join-Path $ScoopRoot 'apps\far\current\Far.exe'
-    if (-not (Test-Path -LiteralPath $exe)) { return }
-    if ((Test-Path -LiteralPath $lnk) -and -not $State.FarDesktopLink) { Ok "desktop shortcut - yours is there, left alone: $lnk"; return }
-    try {
-        $sc = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk)
-        $sc.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-        $sc.Arguments = '-NoExit -Command far'
-        $sc.WorkingDirectory = $env:USERPROFILE
-        $sc.IconLocation = "$exe,0"
-        $sc.Description = 'Far Manager (Install-LinuxTools)'
-        $sc.Save()
-    } catch { Warn "desktop shortcut for Far not created: $($_.Exception.Message)"; return }
-    if (-not $State.FarDesktopLink) { $State | Add-Member -NotePropertyName FarDesktopLink -NotePropertyValue $true -Force; Save-State $State }
-    Ok "desktop shortcut: $lnk"
+    $far = Join-Path $ScoopRoot 'apps\far\current\Far.exe'
+    if (-not (Test-Path -LiteralPath $far)) { return }
+    $desk = [Environment]::GetFolderPath('Desktop')
+    if (-not $State.PSObject.Properties['FarDesktopLinks']) { $State | Add-Member -NotePropertyName FarDesktopLinks -NotePropertyValue @() }
+    # Старый ярлык скрипта - заменяется двумя новыми
+    if ($State.FarDesktopLink) {
+        Remove-Item -LiteralPath (Join-Path $desk $FarLegacyLink) -Force -ErrorAction SilentlyContinue
+        $State.PSObject.Properties.Remove('FarDesktopLink'); Save-State $State
+    }
+    $links = Get-FarDesktopLinks
+    foreach ($name in $links.Keys) {
+        $lnk = Join-Path $desk $name
+        $ours = @($State.FarDesktopLinks) -contains $name
+        if ((Test-Path -LiteralPath $lnk) -and -not $ours) { Ok "desktop shortcut - yours is there, left alone: $lnk"; continue }
+        $l = $links[$name]
+        try {
+            $sc = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk)
+            $sc.TargetPath = Join-Path $env:SystemRoot $l.Exe
+            $sc.Arguments = $l.Args
+            $sc.WorkingDirectory = $env:USERPROFILE
+            $sc.IconLocation = "$far,0"
+            $sc.Description = $l.Desc
+            $sc.Save()
+        } catch { Warn "desktop shortcut $name not created: $($_.Exception.Message)"; continue }
+        if (-not $ours) { $State.FarDesktopLinks = @($State.FarDesktopLinks) + $name; Save-State $State }
+        Ok "desktop shortcut: $lnk"
+    }
 }
 function Remove-FarDesktopLink {
     param($State)
-    if (-not $State.FarDesktopLink) { return @() }
-    $lnk = Get-FarDesktopLink
-    if (Test-Path -LiteralPath $lnk) { Remove-Item -LiteralPath $lnk -Force -ErrorAction SilentlyContinue }
-    if (Test-Path -LiteralPath $lnk) { Warn "could not remove $lnk"; return @() }
-    Ok "removed: $lnk"
-    return @('Far desktop shortcut')
+    $desk = [Environment]::GetFolderPath('Desktop')
+    $names = @($State.FarDesktopLinks | Where-Object { $_ })
+    if ($State.FarDesktopLink) { $names += $FarLegacyLink }
+    $done = @()
+    foreach ($name in $names) {
+        $lnk = Join-Path $desk $name
+        if (Test-Path -LiteralPath $lnk) { Remove-Item -LiteralPath $lnk -Force -ErrorAction SilentlyContinue }
+        if (Test-Path -LiteralPath $lnk) { Warn "could not remove $lnk"; continue }
+        Ok "removed: $lnk"; $done += "desktop shortcut $name"
+    }
+    return $done
 }
 # Выход из Far - в папку, где закрылся Far (как mc-wrapper в Linux). Программа
 # не может сменить папку оболочки, из которой её запустили, поэтому:
