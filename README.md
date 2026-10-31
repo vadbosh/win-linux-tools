@@ -148,8 +148,8 @@ If running scripts is blocked, or you are in cmd, start each command with
 | `rg` (ripgrep) | Fast recursive search in code; skips files listed in `.gitignore` |
 | `ug`, `ugrep` | grep with the same options, plus search inside archives (`-z`) and an interactive mode (`-Q`) |
 | `fd` | A fast and simple `find`: `fd name` |
-| `lsd`, `ll` | `ls` with colors and readable columns; `ll` is the long listing |
-| `eza` | Another modern `ls`: tree view (`--tree`), git status of files |
+| `lsd` | `ls` with colors and readable columns |
+| `eza`, `ll` | Another modern `ls`: tree view (`--tree`), git status of files; `ll` is the long listing |
 | `bat` | `cat` with syntax highlighting and line numbers |
 | `dust` | Which folders take the space, as a bar chart |
 | `gdu` | Disk usage you can browse and clean up interactively, like ncdu |
@@ -180,7 +180,7 @@ They work in PowerShell and cmd, also without `-LinuxFirst`.
 
 | Name | Runs |
 |---|---|
-| `ll` | `lsd -lha --group-directories-first --date "+%F %R:%S" --icon never --blocks size,date,name,permission` |
+| `ll` | `eza -la --classify --git --smart-group --group-directories-first --time-style "+%F %R:%S"` |
 | `mtr` | `trip` through gsudo: it needs administrator rights and asks for them |
 | `nc` | `ncat` |
 | `nmap`, `nping` | the same, through gsudo *(with `-WithNmap`)* |
@@ -191,8 +191,8 @@ They work in PowerShell and cmd, also without `-LinuxFirst`.
 `ll`, `eza`, `ls` and `fd` color names by type. Without settings, folders come
 out in the console's dark blue `#0037DA` and are hard to read. The script sets
 `LS_COLORS` and `EZA_COLORS` for your user, with readable colors for folders
-and file types. Links get a turquoise background, and `ll` shows them as
-`name ⇒ link to target`.
+and file types. Links get a turquoise background; `ll` shows them as
+`name -> target`, `lsd -l` as `name ⇒ link to target`.
 
 The script does not touch a value you set yourself. New colors appear in new
 windows; cmd sometimes needs you to sign out of Windows and back in.

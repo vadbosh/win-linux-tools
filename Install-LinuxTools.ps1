@@ -20,14 +20,14 @@
       fd                              fd                    github.com/sharkdp/fd
       ugrep ug                        ugrep                 github.com/Genivia/ugrep
       bat  (cat with highlighting)    bat                   github.com/sharkdp/bat
-      eza  exa  (ls)                  eza                   github.com/eza-community/eza
+      eza  exa  (ls; ll = eza -la ...) eza                  github.com/eza-community/eza
       dust  gdu  (du)  duf (df)       dust, gdu, duf        github.com/bootandy/dust, dundee/gdu, muesli/duf
       btm  (top)  procs  (ps)         bottom, procs         github.com/ClementTsang/bottom, dalance/procs
       gsudo  (sudo)                   gsudo                 github.com/gerardog/gsudo
       xh  xhs  (HTTP requests)        xh                    github.com/ducaale/xh
       curl                            curl                  curl.se (Windows' own curl.exe stays)
       wget                            wget                  eternallybored.org/misc/wget (+ cacert)
-      lsd  (ll = lsd -lha ...)        lsd                   github.com/lsd-rs/lsd
+      lsd                             lsd                   github.com/lsd-rs/lsd
       far              (-WithFar)     far                   farmanager.com; with ArcLite, FarColorer
         Far plugin NetBox (SFTP...)   -                     github.com/michaellukashov/Far-NetBox
         Far plugin IntChecker2        -                     github.com/lazyhamster/IntChecker
@@ -44,9 +44,8 @@
     and installs Microsoft Visual C++ 2015-2022 of that architecture from
     Microsoft, after it checks the signature. It does this right after it
     installs each package. mtr, nc and ll are Scoop shims that run trip,
-    ncat and lsd -lha --group-directories-first --date "+%F %R:%S"
-    --blocks size,date,name,permission
-    --icon never - in PowerShell and cmd, also without -LinuxFirst. For nmap it opens the Npcap
+    ncat and eza -la --classify --git --smart-group
+    --group-directories-first --time-style "+%F %R:%S" - in PowerShell and cmd, also without -LinuxFirst. For nmap it opens the Npcap
     installer. At the end it lists, step by step, what it could not install.
     Without Visual C++ 2015-2022 x64 most tools do not start. If the script
     cannot install it, it stops before it changes anything else.
@@ -206,7 +205,7 @@ Short names, in PowerShell and cmd, also without -LinuxFirst:
        The desktop also gets two shortcuts, Far4Pwsh and Far4CMD: they open
        PowerShell or cmd and run far, so after you quit Far the window stays
        open in the folder Far was in.
-  ll   runs lsd -lha --group-directories-first --date "+%F %R:%S" --icon never --blocks size,date,name,permission
+  ll   runs eza -la --classify --git --smart-group --group-directories-first --time-style "+%F %R:%S"
 File colors in ll, eza, ls, fd: LS_COLORS and EZA_COLORS (readable folders
 and file types), set for your user unless you already have your own.
 Full table with sources:  Get-Help .\Install-LinuxTools.ps1 -Full
@@ -263,7 +262,7 @@ $ToolPkg = @{
     ls = 'uutils-coreutils'; cat = 'uutils-coreutils'; wc = 'uutils-coreutils'; sort = 'uutils-coreutils'
     find = 'uutils-findutils'; xargs = 'uutils-findutils'; grep = 'grep'; awk = 'gawk'; sed = 'sed'
     less = 'less'; jq = 'jq'; which = 'which'; dig = 'bind'; trip = 'trippy'; whois = 'whois'
-    rg = 'ripgrep'; fd = 'fd'; lsd = 'lsd'; ll = 'lsd'; far = 'far'
+    rg = 'ripgrep'; fd = 'fd'; lsd = 'lsd'; ll = 'eza'; far = 'far'
     ugrep = 'ugrep'; bat = 'bat'; eza = 'eza'; dust = 'dust'; gdu = 'gdu'; duf = 'duf'
     btm = 'bottom'; procs = 'procs'; xh = 'xh'; sudo = 'gsudo'   # gsudo даёт ярлык Scoop с именем sudo
     curl = 'curl'; wget = 'wget'
@@ -274,7 +273,7 @@ $ToolPkg = @{
 $Aliases = [ordered]@{
     mtr = @{ Tool = 'trip'; Args = ''; Elevate = $true }
     nc  = @{ Tool = 'ncat'; Args = '' }
-    ll  = @{ Tool = 'lsd';  Args = '-lha --group-directories-first --date "+%F %R:%S" --icon never --blocks size,date,name,permission' }
+    ll  = @{ Tool = 'eza';  Args = '-la --classify --git --smart-group --group-directories-first --time-style "+%F %R:%S"' }
 }
 # Ярлыки пакетов, которым без прав администратора не работать (raw-сокеты):
 # скрипт пускает их через gsudo - только если пакет поставил он сам
@@ -724,7 +723,7 @@ function Repair-PackageDlls {
     }
 }
 
-# mtr, nc, ll - ярлыки Scoop на trip, ncat и lsd с ключами: работают в
+# mtr, nc, ll - ярлыки Scoop на trip, ncat и eza с ключами: работают в
 # PowerShell, cmd и clink без -LinuxFirst. Чужой ярлык с тем же именем не
 # трогается. Строку args скрипт пишет в .shim сам: так ключ с пробелом
 # ("+%F %R:%S") доходит до программы одним аргументом, в кавычках.
@@ -1575,7 +1574,7 @@ function Assert-Git {
     Update-SessionPath
 }
 
-# Цвета имён файлов для lsd (ll), eza, ls (uutils), fd - переменная
+# Цвета имён файлов для eza (ll), lsd, ls (uutils), fd - переменная
 # LS_COLORS, колонки eza - EZA_COLORS. Без LS_COLORS типы файлов идут цветами
 # палитры консоли, а синий там - тёмный #0037DA: папки почти не видны. На
 # Windows lsd читает именно LS_COLORS (README lsd, "custom color schemes for
