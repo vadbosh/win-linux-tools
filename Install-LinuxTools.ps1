@@ -145,7 +145,8 @@ Options:
   -WithFar       Also install Far Manager with its plugins and theme.
   -WithNmap      Also install nmap and ncat (nc) with the Npcap driver.
   -WithClink     Also install clink: bash-like editing in cmd, grey hints
-                 from history (Right arrow accepts), macros after | and &.
+                 from history (Right arrow accepts), Up/Down search history
+                 by the typed start, macros after | and &.
                  Without these two options Far and nmap are not installed.
                  Add either one at any time, for example:
                    .\Install-LinuxTools.ps1 -WithFar
@@ -1699,11 +1700,42 @@ function Install-Clink {
     }
     # Свои макросы - первыми в AutoRun (clink мог переписать значение)
     if ($State.CmdAutoRunSet) { Set-CmdMacros $State }
+    Set-ClinkInputrc $State
     Ok 'clink: starts with every cmd window, grey hints from history (Right arrow accepts)'
+}
+# Стрелки вверх/вниз в clink - история по набранному началу (как PgUp/PgDn;
+# пустая строка - вся история). Блок с метками - в первом найденном
+# .inputrc/_inputrc из порядка поиска clink (%CLINK_INPUTRC%, %USERPROFILE%,
+# %LOCALAPPDATA%, %APPDATA%), нет такого - в %USERPROFILE%\.inputrc.
+$InputrcBegin = '# >>> Install-LinuxTools: Up/Down search history by the typed start >>>'
+$InputrcEnd   = '# <<< Install-LinuxTools <<<'
+function Get-InputrcFile {
+    foreach ($d in @($env:CLINK_INPUTRC, $env:USERPROFILE, $env:LOCALAPPDATA, $env:APPDATA) | Where-Object { $_ }) {
+        foreach ($n in '.inputrc', '_inputrc') { $f = Join-Path $d $n; if (Test-Path -LiteralPath $f) { return $f } }
+    }
+    return (Join-Path $env:USERPROFILE '.inputrc')
+}
+function Remove-InputrcBlock {
+    param([string] $File)
+    if (-not $File -or -not (Test-Path -LiteralPath $File)) { return }
+    $text = [IO.File]::ReadAllText($File)
+    $new = [regex]::Replace($text, "(?s)\r?\n*$([regex]::Escape($InputrcBegin)).*?$([regex]::Escape($InputrcEnd))\r?\n?", "`n").Trim()
+    if (-not $new) { Remove-Item -LiteralPath $File -Force } else { [IO.File]::WriteAllText($File, $new + "`n") }
+}
+function Set-ClinkInputrc {
+    param($State)
+    $file = if ($State.ClinkInputrc) { $State.ClinkInputrc } else { Get-InputrcFile }
+    Remove-InputrcBlock $file
+    $block = @($InputrcBegin, '$if clink', '"\e[A": history-search-backward', '"\e[B": history-search-forward', '$endif', $InputrcEnd) -join "`n"
+    $text = if (Test-Path -LiteralPath $file) { [IO.File]::ReadAllText($file).TrimEnd() + "`n`n" } else { '' }
+    [IO.File]::WriteAllText($file, $text + $block + "`n")     # без BOM
+    if ($State.ClinkInputrc -ne $file) { $State | Add-Member -NotePropertyName ClinkInputrc -NotePropertyValue $file -Force; Save-State $State }
+    Ok "clink: Up/Down search history by the typed start ($file)"
 }
 function Remove-Clink {
     param($State)
     if (@($State.Packages) -notcontains 'clink') { return @() }
+    if ($State.ClinkInputrc) { Remove-InputrcBlock $State.ClinkInputrc; Ok "removed: clink keys in $($State.ClinkInputrc)"; $State.PSObject.Properties.Remove('ClinkInputrc'); Save-State $State }
     $bat = Get-ClinkBat
     if ((Test-Path -LiteralPath $bat) -and (Get-CmdAutoRun) -match 'clink') {
         $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'

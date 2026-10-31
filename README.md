@@ -84,6 +84,9 @@ cmd without clink has no grey hints. Its own history keys: F8 completes the
 typed start from history (press again for older matches), F7 shows a list.
 `-WithClink` installs clink from Scoop, starts it with every cmd window
 (`clink autorun install`) and turns on its grey hints (`autosuggest.enable`).
+In clink, Right arrow accepts the grey hint, F2 lists all hints, Up and
+Down search history by the typed start (the script adds this to `.inputrc`).
+Tab completes command and file names from `PATH`, as in bash.
 A clink that you already start with cmd stays as it is.
 
 ## Options
@@ -239,6 +242,7 @@ The script changes only the environment of the Windows user who runs it:
 | Far desktop shortcuts | the user's Desktop |
 | PSReadLine (with `-LinuxFirst`) | `WindowsPowerShell\Modules` in the user's Documents folder |
 | clink start with cmd | `AutoRun` in `HKCU\Software\Microsoft\Command Processor` |
+| clink keys | a marked block in `%USERPROFILE%\.inputrc` or your existing `.inputrc` |
 | lsd settings | `%APPDATA%\lsd\config.yaml` |
 | Execution policy | scope `CurrentUser` |
 | Record of changes | `%LOCALAPPDATA%\Install-LinuxTools\state.json` |

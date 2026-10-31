@@ -85,8 +85,11 @@ Windows. Это касается только имён, которые есть 
 дополняет набранное начало из истории (ещё F8 — более ранние совпадения),
 F7 показывает список. `-WithClink` ставит clink из Scoop, запускает его с
 каждым окном cmd (`clink autorun install`) и включает серые подсказки
-(`autosuggest.enable`). Свой clink, который уже запускается с cmd, скрипт не
-трогает.
+(`autosuggest.enable`). В clink стрелка вправо принимает серую подсказку,
+F2 показывает все подсказки списком, стрелки вверх и вниз листают историю
+по набранному началу (это скрипт дописывает в `.inputrc`). Tab дополняет
+имена команд и файлов из `PATH`, как в bash. Свой clink, который уже
+запускается с cmd, скрипт не трогает.
 
 ## Ключи
 
@@ -243,6 +246,7 @@ F7 показывает список. `-WithClink` ставит clink из Scoop
 | Ярлыки Far | рабочий стол пользователя |
 | PSReadLine (с `-LinuxFirst`) | `WindowsPowerShell\Modules` в папке «Документы» пользователя |
 | Запуск clink с cmd | `AutoRun` в `HKCU\Software\Microsoft\Command Processor` |
+| Клавиши clink | блок с метками в `%USERPROFILE%\.inputrc` или в твоём `.inputrc` |
 | Настройки lsd | `%APPDATA%\lsd\config.yaml` |
 | Политика выполнения | область `CurrentUser` |
 | Учёт изменений | `%LOCALAPPDATA%\Install-LinuxTools\state.json` |
