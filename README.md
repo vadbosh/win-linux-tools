@@ -53,6 +53,7 @@ updates them and removes everything it added. No WSL, no BusyBox, no winget.
 | `sort`, `more`, `timeout`, `whoami`, `hostname` | Windows programs or PowerShell commands | Windows programs | Linux tools |
 | `cat a.txt \| sort` — a Windows name after `\|` or `&` | PowerShell's `Sort-Object` | Windows `sort.exe` | PowerShell: Linux `sort`. cmd: Linux `sort` with [clink](#cmd-and-clink), Windows `sort.exe` without it |
 | `grep`, `sed`, `awk`, `rg`, `fd`, `jq`, `bat`, `ll`, `mtr` | Linux tools | Linux tools | Linux tools |
+| Grey hint from history as you type | no | no | PowerShell: yes. cmd: only with [clink](#cmd-and-clink) |
 | What changes in your shells | nothing | nothing | a block in the PowerShell profile, doskey macros in cmd |
 
 **Choose `-LinuxFirst`** if you type Linux commands by hand. **Skip it** if
@@ -61,6 +62,10 @@ names that do not clash are enough.
 
 How it works: in PowerShell, a block in the profile replaces each alias with
 the Linux tool, if that tool is installed. In cmd, doskey macros do the same.
+PowerShell also shows the rest of a matching command from history in grey;
+Right arrow accepts it. Windows PowerShell 5.1 comes with PSReadLine 2.0,
+which cannot do this, so the script installs the current PSReadLine from
+PSGallery for your user. A PSReadLine 2.1+ that you installed stays as it is.
 Scripts (`.ps1`) do not load the profile and are not affected. To turn the
 mode on later, run the script again with `-LinuxFirst`. `-Uninstall` removes
 both the block and the macros.
@@ -75,6 +80,12 @@ in `dir | sort` or `cd x & find . -name a` the Windows `sort.exe` and
 anywhere in the line. With clink the macros also work after `|` and `&`.
 Without it, use the full path: `dir | %USERPROFILE%\scoop\shims\sort.exe`.
 
+cmd without clink has no grey hints. Its own history keys: F8 completes the
+typed start from history (press again for older matches), F7 shows a list.
+`-WithClink` installs clink from Scoop, starts it with every cmd window
+(`clink autorun install`) and turns on its grey hints (`autosuggest.enable`).
+A clink that you already start with cmd stays as it is.
+
 ## Options
 
 | Option | What it does |
@@ -83,12 +94,14 @@ Without it, use the full path: `dir | %USERPROFILE%\scoop\shims\sort.exe`.
 | **`-LinuxFirst`** | **Mode.** Installs, and makes Linux names win over Windows names in PowerShell and cmd: [details](#two-modes-with-and-without--linuxfirst). |
 | `-WithFar` | Also installs Far Manager with plugins, a dark theme and settings: [details](#far-manager). |
 | `-WithNmap` | Also installs `nmap` and `ncat` (`nc`) with the Npcap driver. |
+| `-WithClink` | Also installs [clink](#cmd-and-clink) for cmd: grey hints from history, macros after `\|` and `&`. |
 | `-Update` | Updates Scoop and every tool the script installed, Far plugins included. Installs tools that were added to the script later. |
 | `-Uninstall` | Removes what the script added. Keeps git, Visual C++ and Npcap. |
-| `-Uninstall -WithFar`, `-Uninstall -WithNmap` | Removes only Far or only nmap. Everything else stays. |
+| `-Uninstall -WithFar`, `-WithNmap`, `-WithClink` | Removes only Far, only nmap or only clink. Everything else stays. |
 | `-Help`, `--help` | Shows the help. |
 
-Without `-WithFar` and `-WithNmap`, Far and nmap are not installed. Add either
+Without `-WithFar`, `-WithNmap` and `-WithClink`, Far, nmap and clink are not
+installed. Add either
 option at any time; nothing installed earlier is removed, and the other
 options do not need to be repeated. `-Update` does not add Far or nmap.
 
@@ -142,6 +155,7 @@ If running scripts is blocked, or you are in cmd, start each command with
 | `nmap`, `nping` | Port and host scans *(with `-WithNmap`)* |
 | `ncat`, `nc` | Read and write network connections, netcat *(with `-WithNmap`)* |
 | `far` | Two-panel file manager, like mc *(with `-WithFar`)* |
+| `clink` | Bash-like line editing in cmd *(with `-WithClink`)* |
 
 `tree` is already in Windows. `Get-Help .\Install-LinuxTools.ps1 -Full`
 lists the Scoop package and the source of every tool.
@@ -223,6 +237,8 @@ The script changes only the environment of the Windows user who runs it:
 | cmd macros | `AutoRun` in `HKCU\Software\Microsoft\Command Processor` |
 | Far settings, plugins, theme | `persist\far` in the Scoop folder |
 | Far desktop shortcuts | the user's Desktop |
+| PSReadLine (with `-LinuxFirst`) | `WindowsPowerShell\Modules` in the user's Documents folder |
+| clink start with cmd | `AutoRun` in `HKCU\Software\Microsoft\Command Processor` |
 | lsd settings | `%APPDATA%\lsd\config.yaml` |
 | Execution policy | scope `CurrentUser` |
 | Record of changes | `%LOCALAPPDATA%\Install-LinuxTools\state.json` |
@@ -246,7 +262,8 @@ theme, and installs tools that were added to the script later.
 
 - its packages;
 - Scoop, if the script installed it and no other package is left in it;
-- the PowerShell profile block and the cmd macros;
+- the PowerShell profile block, the cmd macros and the PSReadLine it installed;
+- clink and its start with cmd;
 - the colors, the Far settings, plugins and desktop shortcuts;
 - the execution policy change.
 
@@ -269,7 +286,8 @@ administrator rights.
 Tested on two machines. On Windows 11, under an account without
 administrator rights: install with `-WithFar` and `-WithNmap`, `-Update`,
 `-Uninstall`, `-Uninstall -WithFar`, `-Uninstall -WithNmap`, the Far desktop
-shortcut for PowerShell. Not tried yet: the `Far4CMD` shortcut.
+shortcut for PowerShell. Not tried yet: the `Far4CMD` shortcut, grey hints
+in PowerShell, `-WithClink`.
 
 ## License
 

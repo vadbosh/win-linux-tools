@@ -109,6 +109,7 @@ param(
     # С -Uninstall: удалить только Far и/или nmap
     [Parameter(ParameterSetName = 'Install')] [Parameter(ParameterSetName = 'Uninstall')] [switch] $WithFar,
     [Parameter(ParameterSetName = 'Install')] [Parameter(ParameterSetName = 'Uninstall')] [switch] $WithNmap,
+    [Parameter(ParameterSetName = 'Install')] [Parameter(ParameterSetName = 'Uninstall')] [switch] $WithClink,
     [Parameter(ParameterSetName = 'Update', Mandatory = $true)] [switch] $Update,
     [Parameter(ParameterSetName = 'Uninstall', Mandatory = $true)] [switch] $Uninstall,
     # без набора параметров: справка выводится и вместе с любым режимом
@@ -143,6 +144,8 @@ Options:
     Write-Host @'
   -WithFar       Also install Far Manager with its plugins and theme.
   -WithNmap      Also install nmap and ncat (nc) with the Npcap driver.
+  -WithClink     Also install clink: bash-like editing in cmd, grey hints
+                 from history (Right arrow accepts), macros after | and &.
                  Without these two options Far and nmap are not installed.
                  Add either one at any time, for example:
                    .\Install-LinuxTools.ps1 -WithFar
@@ -152,9 +155,9 @@ Options:
                  the tools that were added to this script later.
   -Uninstall     Remove everything that this script added. git stays:
                  remove it with  scoop uninstall git
-  -Uninstall -WithFar, -Uninstall -WithNmap
-                 Remove only Far (with its plugins, theme and settings) or
-                 only nmap. Everything else stays.
+  -Uninstall -WithFar, -Uninstall -WithNmap, -Uninstall -WithClink
+                 Remove only Far (with its plugins, theme and settings),
+                 only nmap or only clink. Everything else stays.
   -Help, --help  Show this help.
 '@
     Write-Host "`nDO YOU NEED -LinuxFirst?" -ForegroundColor $y
@@ -166,6 +169,9 @@ Options:
     Windows programs: the system PATH comes before Scoop.
   With -LinuxFirst these names open the Linux tools: PowerShell gets a block
   in its profile, cmd gets doskey macros (with clink also after | and &).
+  PowerShell also gets grey hints from history (Right arrow accepts): the
+  script installs a newer PSReadLine from PSGallery for that. cmd without
+  clink has no such hints: F8 completes from history, F7 lists it.
   Scripts (.ps1) do not load the profile and are not affected.
   -Uninstall removes both.
 '@
@@ -269,7 +275,7 @@ $ElevateShims = [ordered]@{ nmap = 'nmap'; nping = 'nmap' }
 # настройками). Командная строка Far: far [ключи] [путь_активной [путь_пассивной]]
 $AllPkgs = @('uutils-coreutils', 'uutils-findutils', 'grep', 'gawk', 'sed', 'less', 'jq', 'which', 'ripgrep', 'fd', 'lsd',
              'ugrep', 'bat', 'eza', 'dust', 'gdu', 'duf', 'bottom', 'procs', 'gsudo',
-             'far', 'bind', 'trippy', 'xh', 'curl', 'wget', 'whois', 'nmap')
+             'far', 'bind', 'trippy', 'xh', 'curl', 'wget', 'whois', 'nmap', 'clink')
 
 # Far Manager: плагины с GitHub - последний релиз, файл x64, SHA-256 из поля
 # digest в GitHub API. ArcLite и FarColorer уже входят в сам Far.
@@ -1372,6 +1378,8 @@ function Add-ProfileBlock {
     foreach ($n in $PsNames) {
         $lines += "if (Test-Path `"`$sb\$n.exe`") { if (Test-Path Alias:\$n) { Remove-Item Alias:\$n -Force }; Set-Alias -Name $n -Value `"`$sb\$n.exe`" -Scope Global }"
     }
+    # Серая подсказка из истории, Right - принять (PSReadLine 2.1+)
+    $lines += "if ((Get-Module PSReadLine).Version -ge [version]'2.1') { try { Set-PSReadLineOption -PredictionSource History; Set-PSReadLineOption -PredictionViewStyle InlineView } catch { } }"
     $lines += $End
     Remove-ProfileBlock
     foreach ($p in $Profiles) {
@@ -1597,10 +1605,105 @@ function Remove-LsColors {
     return $done
 }
 
+# Серая подсказка из истории в PowerShell (-LinuxFirst): PSReadLine
+# PredictionSource History - с версии 2.1, а Windows PowerShell 5.1 приходит
+# с 2.0.0. Свежий PSReadLine - с PSGallery для текущего пользователя
+# (Documents\WindowsPowerShell\Modules, в PSModulePath раньше встроенного),
+# как велит README PSReadLine. Ставит отдельный powershell.exe -NoProfile:
+# скрипт мог быть запущен из pwsh 7 со своей папкой модулей. Свой PSReadLine
+# 2.1+ не трогается. State.PSReadLine - поставленные скриптом версии.
+$WinPs   = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$PsrlDir = Join-Path $Docs 'WindowsPowerShell\Modules\PSReadLine'
+function Get-PsrlVersions {
+    if (-not (Test-Path -LiteralPath $PsrlDir)) { return @() }
+    return @(Get-ChildItem -LiteralPath $PsrlDir -Directory | ForEach-Object { try { [version]$_.Name } catch { } } | Sort-Object -Descending)
+}
+function Install-PSReadLine {
+    param($State)
+    if (-not $State.PSObject.Properties['PSReadLine']) { $State | Add-Member -NotePropertyName PSReadLine -NotePropertyValue @() }
+    $before = Get-PsrlVersions
+    if ($before.Count -and $before[0] -ge [version]'2.1' -and -not @($State.PSReadLine | Where-Object { $_ }).Count) {
+        Ok "PSReadLine $($before[0]) - yours, left alone: grey hints from history in PowerShell"; return
+    }
+    $dir = $PsrlDir.Replace("'", "''")
+    $cmd = "[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor 3072; `$ProgressPreference = 'SilentlyContinue'; " +
+           "Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Scope CurrentUser -Force | Out-Null; " +
+           "`$v = (Find-Module PSReadLine -Repository PSGallery -ErrorAction Stop).Version; " +
+           "if (-not (Test-Path (Join-Path '$dir' `$v))) { Install-Module PSReadLine -RequiredVersion `$v -Repository PSGallery -Scope CurrentUser -Force -ErrorAction Stop }"
+    Write-Host '  ...  PSReadLine from PSGallery (grey hints from history in PowerShell)'
+    $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try { $out = (& $WinPs -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command $cmd 2>&1 | Out-String).Trim() }
+    finally { $ErrorActionPreference = $eap }
+    $after = Get-PsrlVersions
+    if (-not $after.Count -or $after[0] -lt [version]'2.1') {
+        Warn "PSReadLine not installed - no grey hints in PowerShell: $out"
+        Add-Step 60 'Grey hints from history in PowerShell: in Windows PowerShell run  Install-Module PSReadLine -Repository PSGallery -Scope CurrentUser -Force  then open a new window'
+        return
+    }
+    $new = @($after | Where-Object { $before -notcontains $_ } | ForEach-Object { "$_" })
+    if ($new.Count) {
+        $State.PSReadLine = @(@($State.PSReadLine | Where-Object { $_ }) + $new); Save-State $State; $script:Changed = $true
+        Ok "PSReadLine $($after[0]): grey hints from history in PowerShell (Right arrow accepts; new windows)"
+    } else { Ok "PSReadLine $($after[0]) - up to date" }
+}
+function Remove-PSReadLine {
+    param($State)
+    $done = @()
+    foreach ($v in @($State.PSReadLine | Where-Object { $_ })) {
+        $d = Join-Path $PsrlDir $v
+        if (Test-Path -LiteralPath $d) { Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue }
+        if (Test-Path -LiteralPath $d) {
+            Warn "PSReadLine $v is in use by an open PowerShell window"
+            Add-Step 85 "Close all PowerShell windows, then in cmd:  rmdir /s /q `"$d`""
+        } else { Ok "removed: PSReadLine $v"; $done += "PSReadLine $v" }
+    }
+    if ((Test-Path -LiteralPath $PsrlDir) -and -not @(Get-ChildItem -LiteralPath $PsrlDir -Force).Count) { Remove-Item -LiteralPath $PsrlDir -Force -ErrorAction SilentlyContinue }
+    return $done
+}
+# clink (-WithClink): bash-подобная строка в cmd - серая подсказка из
+# истории (autosuggest.enable), Tab-меню, поиск, и макросы doskey работают
+# после | и &. Запуск с cmd - clink autorun install (AutoRun в HKCU) из
+# apps\clink\current: путь current Scoop переводит на новую версию. Свой
+# clink в AutoRun (не из пакета скрипта) не трогается.
+function Get-ClinkBat { return (Join-Path $ScoopRoot 'apps\clink\current\clink.bat') }
+function Get-CmdAutoRun { return "$((Get-ItemProperty -Path $CmdKey -Name AutoRun -ErrorAction SilentlyContinue).AutoRun)" }
+function Install-Clink {
+    param($State)
+    if ((Get-CmdAutoRun) -match 'clink' -and @($State.Packages) -notcontains 'clink') { Ok 'clink - yours is already in cmd AutoRun, left alone'; return }
+    Install-ScoopPackage 'clink' $null $State
+    $bat = Get-ClinkBat
+    if (-not (Test-Path -LiteralPath $bat)) { return }
+    $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try {
+        if ((Get-CmdAutoRun) -notmatch 'clink') { & $bat autorun install 2>&1 | Out-Null }
+        & $bat set autosuggest.enable true 2>&1 | Out-Null
+    } finally { $ErrorActionPreference = $eap }
+    if ((Get-CmdAutoRun) -notmatch 'clink') {
+        Warn 'clink is installed but not started with cmd'
+        Add-Step 60 "Start clink with every cmd window: in cmd run  `"$bat`" autorun install"
+        return
+    }
+    # Свои макросы - первыми в AutoRun (clink мог переписать значение)
+    if ($State.CmdAutoRunSet) { Set-CmdMacros $State }
+    Ok 'clink: starts with every cmd window, grey hints from history (Right arrow accepts)'
+}
+function Remove-Clink {
+    param($State)
+    if (@($State.Packages) -notcontains 'clink') { return @() }
+    $bat = Get-ClinkBat
+    if ((Test-Path -LiteralPath $bat) -and (Get-CmdAutoRun) -match 'clink') {
+        $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+        try { & $bat autorun uninstall 2>&1 | Out-Null } finally { $ErrorActionPreference = $eap }
+    }
+    if ((Get-CmdAutoRun) -match 'clink') { Warn 'clink is still in cmd AutoRun'; Add-Step 80 'Remove clink from cmd: in cmd run  clink autorun uninstall' ; return @() }
+    Ok 'removed: clink from cmd AutoRun'
+    return @('clink autorun')
+}
+
 # Far и nmap - по выбору: ставятся по -WithFar/-WithNmap; уже стоящие
 # (выбраны раньше или поставлены не скриптом) обслуживаются как остальные.
 function Install-AllPackages {
-    param($State, [string] $N2 = '', [string] $N3 = '', [switch] $AddFar, [switch] $AddNmap)
+    param($State, [string] $N2 = '', [string] $N3 = '', [switch] $AddFar, [switch] $AddNmap, [switch] $AddClink)
     $have = Get-ScoopInstalled
     Say "${N2}Text and file tools"
     foreach ($p in @('uutils-coreutils', 'uutils-findutils', 'grep', 'gawk', 'sed', 'less', 'jq', 'which', 'ripgrep', 'fd', 'lsd',
@@ -1621,6 +1724,8 @@ function Install-AllPackages {
         Install-ScoopPackage 'nmap' $null $State
         if ((Get-ScoopInstalled) -contains 'nmap') { Install-Npcap $State }
     } else { Write-Host '  --   nmap not installed (add it with -WithNmap)' }
+    if ($AddClink -or $have -contains 'clink') { Install-Clink $State }
+    else { Write-Host '  --   clink not installed (add it with -WithClink)' }
     Add-AliasShims $State
     Set-LsColors $State
     Update-SessionPath
@@ -1634,14 +1739,14 @@ Start-Log
 # -Uninstall -WithFar / -WithNmap: убрать только это дополнение, остальное
 # остаётся. Far - с откатом его настроек, плагинов, темы, ярлыка и обёртки far;
 # nmap - с ярлыком nc. Npcap остаётся, как и при полном удалении.
-if ($Uninstall -and ($WithFar -or $WithNmap)) {
+if ($Uninstall -and ($WithFar -or $WithNmap -or $WithClink)) {
     $ErrorActionPreference = 'Continue'
     if (-not (Test-Path -LiteralPath $StateFile)) { Warn "Nothing recorded in $StateFile - nothing to roll back."; Finish 0 }
     $st = Get-State
     $removed = @(); $kept = @()
     Say 'Rollback'
     if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) { Warn 'Scoop not found - nothing to remove.'; Finish 1 }
-    foreach ($p in @($(if ($WithFar) { 'far' }), $(if ($WithNmap) { 'nmap' }) | Where-Object { $_ })) {
+    foreach ($p in @($(if ($WithFar) { 'far' }), $(if ($WithNmap) { 'nmap' }), $(if ($WithClink) { 'clink' }) | Where-Object { $_ })) {
         if (@($st.Packages) -notcontains $p) { Ok "$p - not installed by this script, left alone"; $kept += "$p (not installed by this script)"; continue }
         if ($p -eq 'far') {
             if (Test-FarRunning) { Warn 'far not removed: Far Manager is running. Close it and run the command again.'; continue }
@@ -1658,6 +1763,7 @@ if ($Uninstall -and ($WithFar -or $WithNmap)) {
                 else { Remove-CmdMacros $st; $st.CmdAutoRunSet = $false; Save-State $st; $removed += 'cmd macros' }
             }
         }
+        if ($p -eq 'clink') { $removed += @(Remove-Clink $st) }
         if ($p -eq 'nmap' -and @($st.Shims) -contains 'nc') {
             if (Test-Path -LiteralPath (Join-Path $ShimDir 'nc.shim')) { scoop shim rm nc 6>$null | Out-Null }
             if (Test-Path -LiteralPath (Join-Path $ShimDir 'nc.shim')) { Warn 'nc - could not remove the shim' }
@@ -1689,7 +1795,9 @@ if ($Uninstall) {
     if ($st.FarLastDir) { Remove-FarProfileBlock }
     $removed += @(Remove-FarDesktopLink $st)
     $removed += @(Remove-LsColors $st)
+    $removed += @(Remove-PSReadLine $st)
     if (Get-Command scoop -ErrorAction SilentlyContinue) {
+        $removed += @(Remove-Clink $st)
         $removed += @(Remove-FarExtras $st)
         foreach ($n in @($st.Shims)) {
             if (Test-Path -LiteralPath (Join-Path $ShimDir "$n.shim")) { scoop shim rm $n 6>$null | Out-Null }
@@ -1762,6 +1870,11 @@ if ($Update) {
     # Пакеты, которых ещё нет (добавлены в скрипт после установки), - доставить
     Install-AllPackages $st
     if ($st.CmdAutoRunSet -or $st.FarLastDir) { Set-CmdMacros $st }   # новые утилиты могли добавить имена
+    if ($st.ProfileBlock) {
+        # Блок профиля из прошлых версий скрипта - без серой подсказки
+        if (-not (Select-String -LiteralPath $Profiles[0] -SimpleMatch 'PredictionSource' -Quiet -ErrorAction SilentlyContinue)) { Add-ProfileBlock }
+        Install-PSReadLine $st
+    }
     Say 'Check'
     $rows = Invoke-Check $st $(if ((Get-ScoopInstalled) -notcontains 'nmap') { @('nmap', 'ncat', 'nc') } else { @() })
     Add-UsageNotes $rows $st
@@ -1821,11 +1934,12 @@ Assert-Git $st
 # строка программы в stderr становится ошибкой и обрывает скрипт
 $ErrorActionPreference = 'Continue'
 
-Install-AllPackages $st '2/5 ' '3/5 ' -AddFar:$WithFar -AddNmap:$WithNmap
+Install-AllPackages $st '2/5 ' '3/5 ' -AddFar:$WithFar -AddNmap:$WithNmap -AddClink:$WithClink
 
 Say '4/5 Linux names first (PowerShell and cmd)'
 if ($LinuxFirst) {
     Add-ProfileBlock; $st.ProfileBlock = $true; Save-State $st
+    Install-PSReadLine $st
 } else {
     Write-Host '  --   skipped (run with -LinuxFirst to make ls, cat, find, sort, mtr, nc... open the Linux tools)'
 }

@@ -54,6 +54,7 @@
 | `sort`, `more`, `timeout`, `whoami`, `hostname` | программы Windows или команды PowerShell | программы Windows | Linux-утилиты |
 | `cat a.txt \| sort` — имя из Windows после `\|` или `&` | `Sort-Object` PowerShell | `sort.exe` Windows | PowerShell: Linux `sort`. cmd: Linux `sort` с [clink](#cmd-и-clink), без него — `sort.exe` Windows |
 | `grep`, `sed`, `awk`, `rg`, `fd`, `jq`, `bat`, `ll`, `mtr` | Linux-утилиты | Linux-утилиты | Linux-утилиты |
+| Серая подсказка из истории при наборе | нет | нет | PowerShell: да. cmd: только с [clink](#cmd-и-clink) |
 | Что меняется в оболочках | ничего | ничего | блок в профиле PowerShell, макросы doskey в cmd |
 
 **Бери `-LinuxFirst`**, если набираешь Linux-команды руками. **Не бери**, если
@@ -62,6 +63,10 @@
 
 Как это устроено: в PowerShell блок в профиле заменяет каждый псевдоним на
 Linux-утилиту, если она установлена. В cmd то же делают макросы doskey.
+Ещё PowerShell показывает серым продолжение подходящей команды из истории;
+стрелка вправо её принимает. В Windows PowerShell 5.1 встроен PSReadLine
+2.0, он так не умеет, поэтому скрипт ставит свежий PSReadLine с PSGallery
+для твоего пользователя. Свой PSReadLine 2.1+ скрипт не трогает.
 Скрипты (`.ps1`) профиль не загружают, их режим не касается. Включить режим
 позже — снова запустить скрипт с `-LinuxFirst`. `-Uninstall` убирает и блок,
 и макросы.
@@ -76,6 +81,13 @@ Windows. Это касается только имён, которые есть 
 любом месте строки. С clink макросы работают и после `|` и `&`. Без него —
 полный путь: `dir | %USERPROFILE%\scoop\shims\sort.exe`.
 
+Серых подсказок в cmd без clink нет. Свои клавиши истории у cmd: F8
+дополняет набранное начало из истории (ещё F8 — более ранние совпадения),
+F7 показывает список. `-WithClink` ставит clink из Scoop, запускает его с
+каждым окном cmd (`clink autorun install`) и включает серые подсказки
+(`autosuggest.enable`). Свой clink, который уже запускается с cmd, скрипт не
+трогает.
+
 ## Ключи
 
 | Ключ | Что делает |
@@ -84,12 +96,13 @@ Windows. Это касается только имён, которые есть 
 | **`-LinuxFirst`** | **Режим.** Ставит утилиты, и в PowerShell и cmd Linux-имена побеждают имена Windows: [подробно](#два-режима-с--linuxfirst-и-без). |
 | `-WithFar` | Дополнительно ставит Far Manager с плагинами, тёмной темой и настройками: [подробно](#far-manager). |
 | `-WithNmap` | Дополнительно ставит `nmap` и `ncat` (`nc`) с драйвером Npcap. |
+| `-WithClink` | Дополнительно ставит [clink](#cmd-и-clink) для cmd: серые подсказки из истории, макросы после `\|` и `&`. |
 | `-Update` | Обновляет Scoop и все утилиты, которые поставил скрипт, и плагины Far. Доставляет утилиты, добавленные в скрипт позже. |
 | `-Uninstall` | Удаляет то, что добавил скрипт. git, Visual C++ и Npcap остаются. |
-| `-Uninstall -WithFar`, `-Uninstall -WithNmap` | Удаляет только Far или только nmap. Остальное остаётся. |
+| `-Uninstall -WithFar`, `-WithNmap`, `-WithClink` | Удаляет только Far, только nmap или только clink. Остальное остаётся. |
 | `-Help`, `--help` | Показывает справку. |
 
-Без `-WithFar` и `-WithNmap` Far и nmap не ставятся. Любой из этих ключей
+Без `-WithFar`, `-WithNmap` и `-WithClink` Far, nmap и clink не ставятся. Любой из этих ключей
 можно добавить когда угодно: поставленное раньше не удаляется, остальные ключи
 повторять не нужно. `-Update` Far и nmap не добавляет.
 
@@ -143,6 +156,7 @@ Windows. Это касается только имён, которые есть 
 | `nmap`, `nping` | Сканирование портов и узлов *(с `-WithNmap`)* |
 | `ncat`, `nc` | Чтение и запись сетевых соединений, netcat *(с `-WithNmap`)* |
 | `far` | Двухпанельный файловый менеджер, как mc *(с `-WithFar`)* |
+| `clink` | Строка cmd как в bash *(с `-WithClink`)* |
 
 `tree` в Windows уже есть. Пакет Scoop и источник каждой утилиты:
 `Get-Help .\Install-LinuxTools.ps1 -Full`.
@@ -227,6 +241,8 @@ Windows. Это касается только имён, которые есть 
 | Макросы cmd | `AutoRun` в `HKCU\Software\Microsoft\Command Processor` |
 | Настройки, плагины и тема Far | `persist\far` в папке Scoop |
 | Ярлыки Far | рабочий стол пользователя |
+| PSReadLine (с `-LinuxFirst`) | `WindowsPowerShell\Modules` в папке «Документы» пользователя |
+| Запуск clink с cmd | `AutoRun` в `HKCU\Software\Microsoft\Command Processor` |
 | Настройки lsd | `%APPDATA%\lsd\config.yaml` |
 | Политика выполнения | область `CurrentUser` |
 | Учёт изменений | `%LOCALAPPDATA%\Install-LinuxTools\state.json` |
@@ -249,7 +265,8 @@ Windows. Это касается только имён, которые есть 
 
 - его пакеты;
 - Scoop, если его поставил скрипт и других пакетов в нём не осталось;
-- блок в профиле PowerShell и макросы cmd;
+- блок в профиле PowerShell, макросы cmd и поставленный им PSReadLine;
+- clink и его запуск с cmd;
 - цвета, настройки, плагины и ярлыки Far;
 - изменение политики выполнения.
 
@@ -273,7 +290,8 @@ GitHub, Scoop и Microsoft. Установщики Visual C++ и Npcap запр�
 Проверено на двух машинах. На Windows 11 под учётной записью без прав
 администратора: установка с `-WithFar` и `-WithNmap`, `-Update`,
 `-Uninstall`, `-Uninstall -WithFar`, `-Uninstall -WithNmap`, ярлык Far для
-PowerShell. Пока не пробовали: ярлык `Far4CMD`.
+PowerShell. Пока не пробовали: ярлык `Far4CMD`, серые подсказки в
+PowerShell, `-WithClink`.
 
 ## Лицензия
 
