@@ -105,10 +105,11 @@ A clink that you already start with cmd stays as it is.
 | **`-LinuxFirst`** | **Mode.** Installs, and makes Linux names win over Windows names in PowerShell and cmd: [details](#two-modes-with-and-without--linuxfirst). |
 | `-WithFar` | Also installs Far Manager with plugins, a dark theme and settings: [details](#far-manager). |
 | `-WithNmap` | Also installs `nmap` and `ncat` (`nc`) with the Npcap driver. |
+| `-WithOhMyPosh` | Also installs oh-my-posh with a prompt theme that needs no special font. Other oh-my-posh themes draw icons and need a [Nerd Font](https://www.nerdfonts.com/font-downloads) set in the terminal. |
 | `-WithClink` | Also installs [clink](#cmd-and-clink) for cmd: grey hints from history, macros after `\|` and `&`. |
 | `-Update` | Updates Scoop and every tool the script installed, Far plugins included. Installs tools that were added to the script later. |
 | `-Uninstall` | Removes what the script added. Keeps git, Visual C++ and Npcap. |
-| `-Uninstall -WithFar`, `-WithNmap`, `-WithClink` | Removes only Far, only nmap or only clink. Everything else stays. |
+| `-Uninstall -WithFar`, `-WithNmap`, `-WithClink`, `-WithOhMyPosh` | Removes only that add-on. Everything else stays. |
 | `-Help`, `--help` | Shows the help. |
 
 Without `-WithFar`, `-WithNmap` and `-WithClink`, Far, nmap and clink are not
@@ -167,6 +168,7 @@ If running scripts is blocked, or you are in cmd, start each command with
 | `ncat`, `nc` | Read and write network connections, netcat *(with `-WithNmap`)* |
 | `far` | Two-panel file manager, like mc *(with `-WithFar`)* |
 | `clink` | Bash-like line editing in cmd *(with `-WithClink`)* |
+| `oh-my-posh` | PowerShell prompt: folder, git branch and changes, time of a slow command; plain characters, no special font *(with `-WithOhMyPosh`)* |
 | `fzf` | Fuzzy finder: Ctrl+R history, Ctrl+T files in PowerShell *(with `-LinuxFirst`)* |
 
 `tree` is already in Windows. `Get-Help .\Install-LinuxTools.ps1 -Full`

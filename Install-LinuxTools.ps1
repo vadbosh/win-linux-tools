@@ -110,6 +110,7 @@ param(
     [Parameter(ParameterSetName = 'Install')] [Parameter(ParameterSetName = 'Uninstall')] [switch] $WithFar,
     [Parameter(ParameterSetName = 'Install')] [Parameter(ParameterSetName = 'Uninstall')] [switch] $WithNmap,
     [Parameter(ParameterSetName = 'Install')] [Parameter(ParameterSetName = 'Uninstall')] [switch] $WithClink,
+    [Parameter(ParameterSetName = 'Install')] [Parameter(ParameterSetName = 'Uninstall')] [switch] $WithOhMyPosh,
     [Parameter(ParameterSetName = 'Update', Mandatory = $true)] [switch] $Update,
     [Parameter(ParameterSetName = 'Uninstall', Mandatory = $true)] [switch] $Uninstall,
     # без набора параметров: справка выводится и вместе с любым режимом
@@ -147,6 +148,9 @@ Options:
   -WithClink     Also install clink: bash-like editing in cmd, grey hints
                  from history (Right arrow accepts), Up/Down search history
                  by the typed start, Tab cycles matches, macros after | and &.
+  -WithOhMyPosh  Also install oh-my-posh: a PowerShell prompt with the folder,
+                 git branch and changes, and the time of a slow command. Plain
+                 characters only - no special font needed.
                  Without these two options Far and nmap are not installed.
                  Add either one at any time, for example:
                    .\Install-LinuxTools.ps1 -WithFar
@@ -156,9 +160,9 @@ Options:
                  the tools that were added to this script later.
   -Uninstall     Remove everything that this script added. git stays:
                  remove it with  scoop uninstall git
-  -Uninstall -WithFar, -Uninstall -WithNmap, -Uninstall -WithClink
-                 Remove only Far (with its plugins, theme and settings),
-                 only nmap or only clink. Everything else stays.
+  -Uninstall -WithFar, -WithNmap, -WithClink, -WithOhMyPosh
+                 Remove only that add-on (Far with its plugins, theme and
+                 settings). Everything else stays.
   -Help, --help  Show this help.
 '@
     Write-Host "`nDO YOU NEED -LinuxFirst?" -ForegroundColor $y
@@ -279,7 +283,7 @@ $ElevateShims = [ordered]@{ nmap = 'nmap'; nping = 'nmap' }
 # настройками). Командная строка Far: far [ключи] [путь_активной [путь_пассивной]]
 $AllPkgs = @('uutils-coreutils', 'uutils-findutils', 'grep', 'gawk', 'sed', 'less', 'jq', 'which', 'ripgrep', 'fd', 'lsd',
              'ugrep', 'bat', 'eza', 'dust', 'gdu', 'duf', 'bottom', 'procs', 'gsudo',
-             'far', 'bind', 'trippy', 'xh', 'curl', 'wget', 'whois', 'nmap', 'clink', 'fzf')
+             'far', 'bind', 'trippy', 'xh', 'curl', 'wget', 'whois', 'nmap', 'clink', 'fzf', 'oh-my-posh')
 
 # Far Manager: плагины с GitHub - последний релиз, файл x64, SHA-256 из поля
 # digest в GitHub API. ArcLite и FarColorer уже входят в сам Far.
@@ -1716,6 +1720,80 @@ function Remove-ShellModules {
     }
     return $done
 }
+# oh-my-posh (-WithOhMyPosh): приглашение PowerShell - папка, ветка и
+# изменения git, время долгой команды, > красным после ошибки. Тема своя, без
+# значков Nerd Font: обычные символы, шрифт терминала менять не нужно. Свой
+# блок в профиле (после блока -LinuxFirst или до - не важно: posh-git не
+# трогает чужое приглашение). Свой oh-my-posh не из пакета скрипта - не трогать.
+$OmpConfig = Join-Path $env:USERPROFILE '.config\oh-my-posh\install-linuxtools.omp.json'
+$OmpBegin  = '# >>> Install-LinuxTools: oh-my-posh prompt >>>'
+$OmpEnd    = '# <<< Install-LinuxTools: oh-my-posh <<<'
+$OmpTheme  = @'
+{
+  "$schema": "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json",
+  "version": 4,
+  "blocks": [
+    {
+      "type": "prompt", "alignment": "left",
+      "segments": [
+        { "type": "path", "style": "plain", "foreground": "#4FC1FF", "template": "{{ .Path }} ", "options": { "style": "full" } },
+        { "type": "git", "style": "plain", "foreground": "#A0A0A0",
+          "template": "{{ .HEAD }}{{ if .BranchStatus }} {{ .BranchStatus }}{{ end }}{{ if .Working.Changed }}<#FFAFD7> *{{ .Working.String }}</>{{ end }}{{ if .Staging.Changed }}<#A3BE8C> +{{ .Staging.String }}</>{{ end }} ",
+          "options": { "branch_icon": "", "branch_identical_icon": "", "branch_ahead_icon": "↑", "branch_behind_icon": "↓", "branch_gone_icon": "x",
+                       "commit_icon": "@", "tag_icon": "#", "rebase_icon": "rebase ", "cherry_pick_icon": "pick ", "revert_icon": "revert ", "merge_icon": "merge ", "no_commits_icon": "no commits" } },
+        { "type": "executiontime", "style": "plain", "foreground": "#E5C07B", "template": "{{ .FormattedMs }} ", "options": { "style": "austin", "threshold": 2000 } }
+      ]
+    },
+    {
+      "type": "prompt", "alignment": "left", "newline": true,
+      "segments": [
+        { "type": "status", "style": "plain", "foreground": "#B48EAD", "foreground_templates": [ "{{ if gt .Code 0 }}#E06C75{{ end }}" ], "template": "> ", "options": { "always_enabled": true } }
+      ]
+    }
+  ]
+}
+'@
+function Remove-OmpBlock {
+    foreach ($p in $Profiles) {
+        if (-not (Test-Path -LiteralPath $p)) { continue }
+        $text = Get-Content -LiteralPath $p -Raw
+        $new = [regex]::Replace($text, "(?s)\r?\n*$([regex]::Escape($OmpBegin)).*?$([regex]::Escape($OmpEnd))\r?\n?", "`r`n")
+        if ($new -ne $text) { Set-Content -LiteralPath $p -Value $new.TrimEnd() -Encoding UTF8 }
+    }
+}
+function Install-OhMyPosh {
+    param($State)
+    if ((Get-Command oh-my-posh -ErrorAction SilentlyContinue) -and @($State.Packages) -notcontains 'oh-my-posh') { Ok 'oh-my-posh - yours, left alone'; return }
+    Install-ScoopPackage 'oh-my-posh' $null $State
+    if ((Get-ScoopInstalled) -notcontains 'oh-my-posh') { return }
+    $dir = Split-Path -Parent $OmpConfig
+    if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+    [IO.File]::WriteAllText($OmpConfig, $OmpTheme.Replace("`r`n", "`n"))     # без BOM
+    $cfg = $OmpConfig.Replace("'", "''")
+    $lines = @($OmpBegin, "if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) { oh-my-posh init pwsh --config '$cfg' | Invoke-Expression }", $OmpEnd)
+    Remove-OmpBlock
+    foreach ($p in $Profiles) {
+        $pd = Split-Path -Parent $p
+        if (-not (Test-Path $pd)) { New-Item -ItemType Directory -Force -Path $pd | Out-Null }
+        $text = if (Test-Path -LiteralPath $p) { Get-Content -LiteralPath $p -Raw } else { '' }
+        Set-Content -LiteralPath $p -Value (("$text".TrimEnd() + "`r`n`r`n" + ($lines -join "`r`n")).TrimStart() + "`r`n") -Encoding UTF8
+    }
+    if (-not $State.OhMyPosh) { $State | Add-Member -NotePropertyName OhMyPosh -NotePropertyValue $true -Force; Save-State $State; $script:Changed = $true }
+    Ok 'oh-my-posh: PowerShell prompt with folder, git branch and changes, slow command time (new windows)'
+    Write-Host '  !!   oh-my-posh: the script theme uses plain characters. Other oh-my-posh themes draw icons' -ForegroundColor Yellow
+    Write-Host '       and need a Nerd Font set in the terminal: https://www.nerdfonts.com/font-downloads' -ForegroundColor Yellow
+    Write-Host '       (how to: https://ohmyposh.dev/docs/installation/fonts)' -ForegroundColor Yellow
+}
+function Remove-OhMyPosh {
+    param($State)
+    if (-not $State.OhMyPosh) { return @() }
+    Remove-OmpBlock
+    Remove-Item -LiteralPath $OmpConfig -Force -ErrorAction SilentlyContinue
+    $State.PSObject.Properties.Remove('OhMyPosh'); Save-State $State
+    Ok 'removed: oh-my-posh prompt (profile block, theme)'
+    return @('oh-my-posh prompt')
+}
+
 # clink (-WithClink): bash-подобная строка в cmd - серая подсказка из
 # истории (autosuggest.enable), Tab-меню, поиск, и макросы doskey работают
 # после | и &. Запуск с cmd - clink autorun install (AutoRun в HKCU) из
@@ -1824,7 +1902,7 @@ function Remove-Clink {
 # Far и nmap - по выбору: ставятся по -WithFar/-WithNmap; уже стоящие
 # (выбраны раньше или поставлены не скриптом) обслуживаются как остальные.
 function Install-AllPackages {
-    param($State, [string] $N2 = '', [string] $N3 = '', [switch] $AddFar, [switch] $AddNmap, [switch] $AddClink)
+    param($State, [string] $N2 = '', [string] $N3 = '', [switch] $AddFar, [switch] $AddNmap, [switch] $AddClink, [switch] $AddOhMyPosh)
     $have = Get-ScoopInstalled
     Say "${N2}Text and file tools"
     foreach ($p in @('uutils-coreutils', 'uutils-findutils', 'grep', 'gawk', 'sed', 'less', 'jq', 'which', 'ripgrep', 'fd', 'lsd',
@@ -1847,6 +1925,8 @@ function Install-AllPackages {
     } else { Write-Host '  --   nmap not installed (add it with -WithNmap)' }
     if ($AddClink -or $have -contains 'clink') { Install-Clink $State }
     else { Write-Host '  --   clink not installed (add it with -WithClink)' }
+    if ($AddOhMyPosh -or $have -contains 'oh-my-posh') { Install-OhMyPosh $State }
+    else { Write-Host '  --   oh-my-posh not installed (add it with -WithOhMyPosh)' }
     Add-AliasShims $State
     Set-LsColors $State
     Update-SessionPath
@@ -1860,7 +1940,7 @@ Start-Log
 # -Uninstall -WithFar / -WithNmap: убрать только это дополнение, остальное
 # остаётся. Far - с откатом его настроек, плагинов, темы, ярлыка и обёртки far;
 # nmap - с ярлыком nc. Npcap остаётся, как и при полном удалении.
-if ($Uninstall -and ($WithFar -or $WithNmap -or $WithClink)) {
+if ($Uninstall -and ($WithFar -or $WithNmap -or $WithClink -or $WithOhMyPosh)) {
     $ErrorActionPreference = 'Continue'
     if (-not (Test-Path -LiteralPath $StateFile)) { Warn "Nothing recorded in $StateFile - nothing to roll back."; Finish 0 }
     $st = Get-State
@@ -1873,6 +1953,7 @@ if ($Uninstall -and ($WithFar -or $WithNmap -or $WithClink)) {
     if ($WithFar)   { $parts += 'far' }
     if ($WithNmap)  { $parts += 'nmap' }
     if ($WithClink) { $parts += 'clink' }
+    if ($WithOhMyPosh) { $parts += 'oh-my-posh' }
     Write-Host "  ...  remove only: $($parts -join ', ')"
     foreach ($p in $parts) {
         if (@($st.Packages) -notcontains $p) { Ok "$p - not installed by this script, left alone"; $kept += "$p (not installed by this script)"; continue }
@@ -1892,6 +1973,7 @@ if ($Uninstall -and ($WithFar -or $WithNmap -or $WithClink)) {
             }
         }
         if ($p -eq 'clink') { $removed += @(Remove-Clink $st) }
+        if ($p -eq 'oh-my-posh') { $removed += @(Remove-OhMyPosh $st) }
         if ($p -eq 'nmap' -and @($st.Shims) -contains 'nc') {
             if (Test-Path -LiteralPath (Join-Path $ShimDir 'nc.shim')) { scoop shim rm nc 6>$null | Out-Null }
             if (Test-Path -LiteralPath (Join-Path $ShimDir 'nc.shim')) { Warn 'nc - could not remove the shim' }
@@ -1924,6 +2006,7 @@ if ($Uninstall) {
     $removed += @(Remove-FarDesktopLink $st)
     $removed += @(Remove-LsColors $st)
     $removed += @(Remove-ShellModules $st)
+    $removed += @(Remove-OhMyPosh $st)
     if (Get-Command scoop -ErrorAction SilentlyContinue) {
         $removed += @(Remove-Clink $st)
         $removed += @(Remove-FarExtras $st)
@@ -2062,7 +2145,7 @@ Assert-Git $st
 # строка программы в stderr становится ошибкой и обрывает скрипт
 $ErrorActionPreference = 'Continue'
 
-Install-AllPackages $st '2/5 ' '3/5 ' -AddFar:$WithFar -AddNmap:$WithNmap -AddClink:$WithClink
+Install-AllPackages $st '2/5 ' '3/5 ' -AddFar:$WithFar -AddNmap:$WithNmap -AddClink:$WithClink -AddOhMyPosh:$WithOhMyPosh
 
 Say '4/5 Linux names first (PowerShell and cmd)'
 if ($LinuxFirst) {
