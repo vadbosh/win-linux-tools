@@ -1145,6 +1145,8 @@ function Install-FarExtras {
     if (-not $far) { return }
     if (Test-FarRunning) {
         Warn 'Far Manager is running - plugins and theme are not installed. Close Far and run the script again.'
+        # Ярлыкам запущенный Far не мешает
+        if (@($State.Packages) -contains 'far') { Install-FarDesktopLink $State }
         return
     }
     foreach ($p in $FarPlugins) { Install-FarPlugin $p $far }
@@ -1177,11 +1179,19 @@ function Install-FarDesktopLink {
     if (-not (Test-Path -LiteralPath $far)) { return }
     $desk = [Environment]::GetFolderPath('Desktop')
     if (-not $State.PSObject.Properties['FarDesktopLinks']) { $State | Add-Member -NotePropertyName FarDesktopLinks -NotePropertyValue @() }
-    # Старый ярлык скрипта - заменяется двумя новыми
-    if ($State.FarDesktopLink) {
-        Remove-Item -LiteralPath (Join-Path $desk $FarLegacyLink) -Force -ErrorAction SilentlyContinue
-        $State.PSObject.Properties.Remove('FarDesktopLink'); Save-State $State
+    # Старый ярлык скрипта - заменяется двумя новыми. Свой он, если так
+    # записано в state.json или в его описании стоит метка скрипта
+    # (Description 'Far Manager (Install-LinuxTools)'): запись могла пропасть
+    # при -Uninstall -WithFar и повторной установке.
+    $old = Join-Path $desk $FarLegacyLink
+    if (Test-Path -LiteralPath $old) {
+        $desc = try { (New-Object -ComObject WScript.Shell).CreateShortcut($old).Description } catch { '' }
+        if ($State.FarDesktopLink -or $desc -like '*(Install-LinuxTools)*') {
+            Remove-Item -LiteralPath $old -Force -ErrorAction SilentlyContinue
+            if (-not (Test-Path -LiteralPath $old)) { Ok "removed old desktop shortcut: $old" }
+        }
     }
+    if ($State.PSObject.Properties['FarDesktopLink']) { $State.PSObject.Properties.Remove('FarDesktopLink'); Save-State $State }
     $links = Get-FarDesktopLinks
     foreach ($name in $links.Keys) {
         $lnk = Join-Path $desk $name
@@ -1205,7 +1215,11 @@ function Remove-FarDesktopLink {
     param($State)
     $desk = [Environment]::GetFolderPath('Desktop')
     $names = @($State.FarDesktopLinks | Where-Object { $_ })
-    if ($State.FarDesktopLink) { $names += $FarLegacyLink }
+    $old = Join-Path $desk $FarLegacyLink
+    if (Test-Path -LiteralPath $old) {
+        $desc = try { (New-Object -ComObject WScript.Shell).CreateShortcut($old).Description } catch { '' }
+        if ($State.FarDesktopLink -or $desc -like '*(Install-LinuxTools)*') { $names += $FarLegacyLink }
+    }
     $done = @()
     foreach ($name in $names) {
         $lnk = Join-Path $desk $name
