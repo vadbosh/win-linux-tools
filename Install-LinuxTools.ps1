@@ -1703,20 +1703,50 @@ function Install-ShellModules {
     Install-ScoopPackage 'fzf' $null $State
     foreach ($n in $GalleryModules.Keys) { Install-GalleryModule $State $n ([version]$GalleryModules[$n]) }
 }
+# Удаление модулей. Окно PowerShell, в котором идёт -Uninstall, само держит
+# PSReadLine и PSFzf (DLL загружены) - их папки удаляет скрытый
+# powershell -NoProfile после закрытия этого окна (Wait-Process). Держит их
+# ещё и другое окно Windows PowerShell - тогда шаг вручную.
 function Remove-ShellModules {
     param($State)
-    $done = @()
+    $done = @(); $locked = @()
     foreach ($n in $GalleryModules.Keys) {
         foreach ($v in @(Get-OurModVersions $State $n)) {
             $d = Join-Path (Join-Path $PsModDir $n) $v
             if (Test-Path -LiteralPath $d) { Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue }
-            if (Test-Path -LiteralPath $d) {
-                Warn "$n $v is in use by an open PowerShell window"
-                Add-Step 85 "Close all PowerShell windows, then in cmd:  rmdir /s /q `"$d`""
-            } else { Ok "removed: $n $v"; $done += "$n $v" }
+            if (Test-Path -LiteralPath $d) { $locked += [PSCustomObject]@{ Name = "$n $v"; Dir = $d } }
+            else { Ok "removed: $n $v"; $done += "$n $v" }
         }
         $md = Join-Path $PsModDir $n
         if ((Test-Path -LiteralPath $md) -and -not @(Get-ChildItem -LiteralPath $md -Force).Count) { Remove-Item -LiteralPath $md -Force -ErrorAction SilentlyContinue }
+    }
+    if (-not $locked.Count) { return $done }
+    $others = @(Get-Process powershell -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $PID } |
+        Where-Object { try { @($_.Modules | Where-Object { $_.FileName -like "$PsModDir*" }).Count } catch { $false } })
+    if ($others.Count) {
+        foreach ($l in $locked) {
+            Warn "$($l.Name) is in use by another open PowerShell window"
+            Add-Step 85 "Close all PowerShell windows, then in cmd:  rmdir /s /q `"$($l.Dir)`""
+        }
+        return $done
+    }
+    $list = ($locked | ForEach-Object { "'" + $_.Dir.Replace("'", "''") + "'" }) -join ','
+    $cmd = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; " +
+           "foreach (`$d in @($list)) { Remove-Item -LiteralPath `$d -Recurse -Force -ErrorAction SilentlyContinue; " +
+           "`$p = Split-Path -Parent `$d; if ((Test-Path -LiteralPath `$p) -and -not @(Get-ChildItem -LiteralPath `$p -Force).Count) { Remove-Item -LiteralPath `$p -Force -ErrorAction SilentlyContinue } }"
+    $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($cmd))
+    try {
+        Start-Process -FilePath $WinPs -WindowStyle Hidden -ArgumentList @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $enc) | Out-Null
+        foreach ($l in $locked) {
+            Write-Host "  ...  $($l.Name) is in use by this PowerShell window - it will be removed when you close the window"
+            $done += "$($l.Name) (after this window closes)"
+        }
+        Add-Step 85 "Close this PowerShell window: $(@($locked | ForEach-Object { $_.Name.Split(' ')[0] }) -join ' and ') are removed after that"
+    } catch {
+        foreach ($l in $locked) {
+            Warn "$($l.Name) is in use by this PowerShell window"
+            Add-Step 85 "Close all PowerShell windows, then in cmd:  rmdir /s /q `"$($l.Dir)`""
+        }
     }
     return $done
 }
