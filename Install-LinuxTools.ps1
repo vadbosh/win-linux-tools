@@ -1742,7 +1742,8 @@ function Set-ClinkInputrc {
 function Remove-Clink {
     param($State)
     if (@($State.Packages) -notcontains 'clink') { return @() }
-    if ($State.ClinkInputrc) { Remove-InputrcBlock $State.ClinkInputrc; Ok "removed: clink keys in $($State.ClinkInputrc)"; $State.PSObject.Properties.Remove('ClinkInputrc'); Save-State $State }
+    $keys = @()
+    if ($State.ClinkInputrc) { Remove-InputrcBlock $State.ClinkInputrc; Ok "removed: clink keys in $($State.ClinkInputrc)"; $keys = @('clink keys'); $State.PSObject.Properties.Remove('ClinkInputrc'); Save-State $State }
     $bat = Get-ClinkBat
     if ((Test-Path -LiteralPath $bat) -and (Get-CmdAutoRun) -match 'clink') {
         $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
@@ -1750,7 +1751,7 @@ function Remove-Clink {
     }
     if ((Get-CmdAutoRun) -match 'clink') { Warn 'clink is still in cmd AutoRun'; Add-Step 80 'Remove clink from cmd: in cmd run  clink autorun uninstall' ; return @() }
     Ok 'removed: clink from cmd AutoRun'
-    $done = @('clink autorun')
+    $done = $keys + @('clink autorun')
     # Настройки и история clink (state directory из clink info): clink ставил
     # скрипт - удаляются вместе с ним. Открытые окна cmd держат файлы.
     $data = Join-Path $env:LOCALAPPDATA 'clink'
