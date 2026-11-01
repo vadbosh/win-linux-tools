@@ -9,11 +9,13 @@
     firewall rules for ICMP and for trip.exe, security products, ping,
     tracert, and short trip runs over ICMP, TCP and through the mtr shim.
 
-    -RuleTest runs trip three times, each with one temporary inbound ICMPv4
-    Allow rule: for any program, for trip.exe through Scoop's "current"
-    folder, and for trip.exe in its version folder. Each rule is named
-    WLT_TRIPDIAG_* and is removed right after its run, even if the run
-    fails.
+    -RuleTest runs trip over ICMP and over TCP 443, each time with one
+    temporary inbound ICMPv4 Allow rule for any program: first for all
+    ICMPv4 (the control: it is known to work), then only for types 0, 3
+    and 11 (Echo Reply, Destination Unreachable, Time Exceeded). A rule for
+    trip.exe alone does not work: ICMP that comes to a raw socket is not
+    matched by -Program. Each rule is named WLT_TRIPDIAG_* and is removed
+    right after its runs, even if a run fails.
 
     -FirewallOff also runs trip with Windows Defender Firewall turned off
     for all profiles, and turns back on every profile that was on before,
@@ -81,16 +83,22 @@ function Invoke-Utf8([scriptblock]$Cmd) {
     }
 }
 
-# Одно временное входящее правило ICMPv4 Allow, прогон trip, удаление правила.
-function Test-WithRule([string]$RuleName, [string]$Program) {
+# Одно временное входящее правило ICMPv4 Allow для любой программы, прогоны
+# trip по ICMP и по TCP 443, удаление правила. Правило с -Program не
+# работает: ICMP, пришедший на raw-сокет, по программе не сопоставляется
+# (проверено на Win11 2026-11-01).
+function Test-WithRule([string]$RuleName, [string[]]$IcmpType) {
     $extra = @{}
-    if ($Program) { $extra.Program = $Program }
-    $what = if ($Program) { $Program } else { 'any program' }
+    if ($IcmpType) { $extra.IcmpType = $IcmpType }
+    $what = if ($IcmpType) { "ICMPv4 types $($IcmpType -join ',')" } else { 'all ICMPv4' }
     try {
         New-NetFirewallRule -Name $RuleName -DisplayName $RuleName -Direction Inbound -Protocol ICMPv4 `
             -Action Allow -Profile Any @extra -ErrorAction Stop | Out-Null
         Write-Section "trip ICMP with rule $RuleName ($what)" {
             Invoke-Utf8 { & $Trip $Ip -m pretty -C 3 -t 8 }
+        }
+        Write-Section "trip TCP 443 with rule $RuleName ($what)" {
+            Invoke-Utf8 { & $Trip $Ip --tcp -P 443 -m pretty -C 3 -t 8 }
         }
     } catch {
         $msg = $_.Exception.Message
@@ -234,11 +242,8 @@ if (Get-Command mtr -ErrorAction SilentlyContinue) {
 
 if ($RuleTest -and $Trip) {
     Write-Host "`r`nTemporary firewall rules WLT_TRIPDIAG_*: each is removed right after its run." -ForegroundColor Yellow
-    $cur = Join-Path $ScoopRoot 'apps\trippy\current'
-    $verDir = if (Test-Path -LiteralPath $cur) { @((Get-Item -LiteralPath $cur).Target)[0] } else { $null }
     Test-WithRule 'WLT_TRIPDIAG_ANY' $null
-    Test-WithRule 'WLT_TRIPDIAG_CURRENT' $Trip
-    if ($verDir) { Test-WithRule 'WLT_TRIPDIAG_VERSION' (Join-Path $verDir 'trip.exe') }
+    Test-WithRule 'WLT_TRIPDIAG_TYPES' @('0', '3', '11')
     Write-Section 'WLT_TRIPDIAG_* rules left (must be nothing)' {
         Get-NetFirewallRule -Name 'WLT_TRIPDIAG_*' -ErrorAction SilentlyContinue | Format-Table Name, Enabled -AutoSize
     }
