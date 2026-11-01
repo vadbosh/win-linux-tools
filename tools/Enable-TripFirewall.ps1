@@ -30,6 +30,13 @@
 .PARAMETER Remove
     Remove the two rules instead of adding them.
 
+.PARAMETER Help
+    Show a short help. --help, -h and /? do the same.
+
+.PARAMETER Rest
+    Not an option. It catches --help, /? and unknown arguments, so that the
+    script can show the help instead of an error.
+
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File .\Enable-TripFirewall.ps1
 
@@ -40,10 +47,42 @@
 param(
     [switch]$Remove,
     # Не для запуска руками: так скрипт помечает свой второй запуск через UAC
-    [Parameter(DontShow)] [switch]$Elevated
+    [Parameter(DontShow)] [switch]$Elevated,
+    [switch]$Help,
+    # --help, /? и всё остальное, чего PowerShell не узнал как ключ
+    [Parameter(Position = 0, ValueFromRemainingArguments = $true)] [string[]]$Rest
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ($Help -or $Rest) {
+    $helpWords = @('--help', '-help', '--h', '-h', '/?', '/h', '/help', '-?', '?', 'help')
+    $unknown = @($Rest | Where-Object { $_ -and $helpWords -notcontains $_ })
+    if ($unknown.Count) { Write-Host "Unknown argument: $($unknown -join ' ')`n" -ForegroundColor Red }
+    Write-Host @'
+Enable-TripFirewall.ps1 - allow ICMP replies in Windows Defender Firewall, so
+that trip (mtr) shows the hops. Works without Install-LinuxTools.ps1.
+
+Usage:
+    .\Enable-TripFirewall.ps1            add the two rules
+    .\Enable-TripFirewall.ps1 -Remove    remove them
+If running scripts is blocked, or in cmd:
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\Enable-TripFirewall.ps1 [-Remove]
+
+Rules (inbound, Allow, any program, all profiles):
+    InstallLinuxTools-trip-ICMPv4   ICMPv4 0, 3, 11 (Echo Reply,
+                                    Destination Unreachable, Time Exceeded)
+    InstallLinuxTools-trip-ICMPv6   ICMPv6 129 (Echo Reply)
+Echo Request stays closed: the computer still does not answer ping.
+
+Needs administrator rights: without them the script asks through UAC.
+trip itself also needs administrator rights on Windows.
+Install-LinuxTools.ps1 leaves these rules alone, and its -Uninstall does
+not remove them: use -Remove.
+Full help:  Get-Help .\Enable-TripFirewall.ps1 -Full
+'@
+    exit $(if ($unknown.Count) { 1 } else { 0 })
+}
 
 # Те же имена и типы, что в Install-LinuxTools.ps1 ($TripRules): правка там -
 # правка здесь.
