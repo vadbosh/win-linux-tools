@@ -60,8 +60,11 @@ updates them and removes everything it added. No WSL, no BusyBox, no winget.
 you are used to PowerShell's `ls` and `rm` and the Windows `find`, or if the
 names that do not clash are enough.
 
-How it works: in PowerShell, a block in the profile replaces each alias with
-the Linux tool, if that tool is installed. In cmd, doskey macros do the same.
+How it works: in PowerShell, a block in the profile turns each name into a
+small function, if its Linux tool is installed. A command you type runs the
+Linux tool. The same name in a script or in a Windows module runs what it ran
+before: `sort` runs `Sort-Object`, `find` runs Windows `find.exe`. In cmd,
+doskey macros do the same: they work only for what you type.
 PowerShell also shows the rest of a matching command from history in grey;
 Right arrow accepts it. Windows PowerShell 5.1 comes with PSReadLine 2.0,
 which cannot do this, so the script installs the current PSReadLine from
@@ -71,8 +74,8 @@ the git branch and changes in the prompt and completes git commands with Tab;
 [fzf](https://github.com/junegunn/fzf) with
 [PSFzf](https://github.com/kelleyma49/PSFzf) gives Ctrl+R, a fuzzy search over
 the whole history, and Ctrl+T, a file search that pastes the path.
-Scripts (`.ps1`) do not load the profile and are not affected. To turn the
-mode on later, run the script again with `-LinuxFirst`. `-Uninstall` removes
+Scripts (`.ps1`) and Windows modules work as without `-LinuxFirst`, also
+when you start them from that window. To turn the mode on later, run the script again with `-LinuxFirst`. `-Uninstall` removes
 both the block and the macros.
 
 ### cmd and clink

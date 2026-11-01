@@ -182,7 +182,8 @@ Options:
   Ctrl+T file search (fzf, PSFzf): the script installs fzf from Scoop and
   PSReadLine, posh-git, PSFzf from PSGallery for that. cmd without
   clink has no such hints: F8 completes from history, F7 lists it.
-  Scripts (.ps1) do not load the profile and are not affected.
+  Only what you type changes: scripts (.ps1) and Windows modules keep the
+  usual commands, also when you start them from that window.
   -Uninstall removes both.
 '@
     Write-Host '  Use it if you type Linux commands by hand:  .\Install-LinuxTools.ps1 -LinuxFirst' -ForegroundColor $g
@@ -1477,13 +1478,59 @@ function Remove-ProfileBlock {
         if ($new -ne $text) { Set-Content -LiteralPath $p -Value $new.TrimEnd() -Encoding UTF8; Ok "PowerShell profile block removed: $p" }
     }
 }
-function Add-ProfileBlock {
-    # Псевдоним убирается, только если Linux-замена установлена: иначе
-    # команда (например diff) пропала бы совсем
-    $lines = @($Begin, "`$sb = '$ShimDir'")
-    foreach ($n in $PsNames) {
-        $lines += "if (Test-Path `"`$sb\$n.exe`") { if (Test-Path Alias:\$n) { Remove-Item Alias:\$n -Force }; Set-Alias -Name $n -Value `"`$sb\$n.exe`" -Scope Global }"
+# Linux-имена в профиле - только для набранного в строке. Раньше здесь был
+# Set-Alias -Scope Global: псевдоним действовал во всём окне, в том числе в
+# скриптах, запущенных из него, и внутри модулей Windows. Get-NetIPConfiguration
+# зовёт sort (= Sort-Object) и падал на sort.exe: "unexpected argument '-D'"
+# (Win11, 2026-11-01). Теперь каждое имя - функция: набрано в строке
+# ($MyInvocation.CommandOrigin = Runspace) - Linux-утилита; из скрипта или
+# модуля (Internal) - то, на что имя вело до профиля: команда PowerShell
+# (sort -> Sort-Object), функция (mkdir, more) или программа Windows
+# (find.exe). Вызов - через steppable pipeline: конвейер идёт построчно, ключи
+# (-Descending) доходят. Имя меняется, только если Linux-замена установлена:
+# иначе команда (например diff) пропала бы совсем.
+function Get-LinuxNameLines {
+    $names = ($PsNames | ForEach-Object { "'$_'" }) -join ', '
+    $body = @'
+begin {
+    $wltTo = $global:WltOrig['__NAME__']
+    if ($MyInvocation.CommandOrigin -eq 'Runspace' -or -not $wltTo) { $wltTo = Join-Path $global:WltShims '__NAME__.exe' }
+    $wltArgs = $args
+    $wltPipe = { & $wltTo @wltArgs }.GetSteppablePipeline($MyInvocation.CommandOrigin)
+    $wltPipe.Begin($MyInvocation.ExpectingInput)
+}
+process { if ($MyInvocation.ExpectingInput) { $wltPipe.Process($_) } }
+end { $wltPipe.End() }
+'@
+    $lines = @(
+        "`$global:WltShims = '$ShimDir'"
+        "`$global:WltBody = @'"
+        $body
+        "'@"
+        @'
+# Что было за именем до профиля - один раз за окно: повторный . $PROFILE не
+# должен записать сюда нашу же функцию
+if (-not $global:WltOrig) { $global:WltOrig = @{} }
+'@
+        "foreach (`$n in @($names)) {"
+        @'
+    if (-not (Test-Path -LiteralPath (Join-Path $global:WltShims "$n.exe"))) { continue }
+    if (-not $global:WltOrig.ContainsKey($n)) {
+        $c = Get-Command $n -ErrorAction SilentlyContinue | Select-Object -First 1
+        $global:WltOrig[$n] = if (-not $c) { $null }
+            elseif ($c.CommandType -eq 'Alias') { $c.Definition }
+            elseif ($c.CommandType -eq 'Function') { Set-Item "function:global:WltOrig-$n" $c.ScriptBlock; "WltOrig-$n" }
+            else { $c.Source }
     }
+    if (Test-Path "Alias:$n") { Remove-Item "Alias:$n" -Force }
+    Set-Item "function:global:$n" ([scriptblock]::Create($global:WltBody.Replace('__NAME__', $n)))
+}
+'@
+    )
+    return $lines
+}
+function Add-ProfileBlock {
+    $lines = @($Begin) + @(Get-LinuxNameLines)
     # Серая подсказка из истории, Right - принять (PSReadLine 2.1+)
     $lines += "if ((Get-Module PSReadLine).Version -ge [version]'2.1') { try { Set-PSReadLineOption -PredictionSource History; Set-PSReadLineOption -PredictionViewStyle InlineView } catch { } }"
     # posh-git: ветка и изменения git в приглашении; PSFzf: Ctrl+R - история,
@@ -2272,8 +2319,9 @@ if ($Update) {
     Install-AllPackages $st
     if ($st.CmdAutoRunSet -or $st.FarLastDir) { Set-CmdMacros $st }   # новые утилиты могли добавить имена
     if ($st.ProfileBlock) {
-        # Блок профиля из прошлых версий скрипта - без серой подсказки
-        if (-not (Select-String -LiteralPath $Profiles[0] -SimpleMatch 'PSFzf' -Quiet -ErrorAction SilentlyContinue)) { Add-ProfileBlock }
+        # Блок профиля из прошлых версий скрипта - без серой подсказки или с
+        # Set-Alias на всё окно (до WltOrig): переписать
+        if (-not (Select-String -LiteralPath $Profiles[0] -SimpleMatch 'WltOrig' -Quiet -ErrorAction SilentlyContinue)) { Add-ProfileBlock }
         Install-ShellModules $st
     }
     Say 'Check'
