@@ -10,6 +10,7 @@ updates them and removes everything it added. No WSL, no BusyBox, no winget.
 ## Contents
 
 - [Quick start](#quick-start)
+- **🔵 [Firewall rules for mtr](#firewall-rules-for-mtr)**
 - [Two modes: with and without -LinuxFirst](#two-modes-with-and-without--linuxfirst)
 - [Options](#options)
 - [Which command to run](#which-command-to-run)
@@ -35,6 +36,22 @@ updates them and removes everything it added. No WSL, no BusyBox, no winget.
 4. Read the summary at the end. It lists what works. If something failed, it
    lists what to do by hand.
 5. Open a new terminal window. The tools work there.
+
+## Firewall rules for mtr
+
+> [!IMPORTANT]
+> Windows Defender Firewall drops the ICMP replies that `trip` waits for, so
+> `mtr` shows no hops. The script adds two inbound rules for any program. They
+> allow reply types only: ICMPv4 0, 3 and 11 (Echo Reply, Destination
+> Unreachable, Time Exceeded) and ICMPv6 129 (Echo Reply). The computer still
+> does not answer ping.
+>
+> A rule for `trip.exe` alone does not work: Windows does not match ICMP on a
+> raw socket to a program. If Windows does not give administrator rights, the
+> summary lists the command to run by hand. `-Uninstall` removes the rules.
+>
+> To add only these rules, without the rest of the script, run
+> `tools\Enable-TripFirewall.ps1`; `-Remove` deletes them.
 
 ## Two modes: with and without -LinuxFirst
 
@@ -243,15 +260,6 @@ folder or a desktop shortcut that the script did not create is left alone.
   anything else.
 - **Npcap.** For `-WithNmap` it opens the Npcap installer from the nmap
   package after it checks the signature.
-- **Firewall rules for `mtr`.** Windows Defender Firewall drops the ICMP
-  replies that `trip` waits for, so `mtr` shows no hops. The script adds two
-  inbound rules for any program, for reply types only: ICMPv4 0, 3 and 11
-  (Echo Reply, Destination Unreachable, Time Exceeded) and ICMPv6 129 (Echo
-  Reply). The computer still does not answer ping. A rule for `trip.exe`
-  alone does not work: Windows does not match ICMP on a raw socket to a
-  program. If Windows does not give administrator rights, the summary lists
-  the command to run by hand. To add only these rules, without the rest of
-  the script, run `tools\Enable-TripFirewall.ps1`; `-Remove` deletes them.
 - **Log.** Every run writes its full output to
   `Install-LinuxTools_<date-time>.log` next to the script.
 - **Summary.** At the end: what works, what not to start, warnings without
