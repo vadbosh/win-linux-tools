@@ -9,6 +9,12 @@
     firewall rules for ICMP and for trip.exe, security products, ping,
     tracert, and short trip runs over ICMP, TCP and through the mtr shim.
 
+    -RuleTest runs trip three times, each with one temporary inbound ICMPv4
+    Allow rule: for any program, for trip.exe through Scoop's "current"
+    folder, and for trip.exe in its version folder. Each rule is named
+    WLT_TRIPDIAG_* and is removed right after its run, even if the run
+    fails.
+
     -FirewallOff also runs trip with Windows Defender Firewall turned off
     for all profiles, and turns back on every profile that was on before,
     even if the run fails. While it is off, the machine is open to the
@@ -20,6 +26,9 @@
 .PARAMETER Target
     IPv4 address or host name to trace. Default 8.8.8.8.
 
+.PARAMETER RuleTest
+    Also run trip with temporary firewall rules (see above).
+
 .PARAMETER FirewallOff
     Also run trip with the firewall off (see above).
 
@@ -27,11 +36,12 @@
     powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Test-Trippy.ps1
 
 .EXAMPLE
-    powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Test-Trippy.ps1 -Target 1.1.1.1 -FirewallOff
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Test-Trippy.ps1 -RuleTest -FirewallOff
 #>
 [CmdletBinding()]
 param(
     [string]$Target = '8.8.8.8',
+    [switch]$RuleTest,
     [switch]$FirewallOff
 )
 
@@ -56,6 +66,38 @@ function Write-Section([string]$Title, [scriptblock]$Body) {
     if (-not $out) { $out = '(nothing)' }
     Write-Host $out
     Add-Content -LiteralPath $Log -Value $out -Encoding UTF8
+}
+
+# Таблицу trip пишет в UTF-8, а 5.1 читает вывод программ в кодировке
+# консоли (cp866) - рамка превращалась в "тФМтФА". На время вызова - UTF-8.
+function Invoke-Utf8([scriptblock]$Cmd) {
+    $enc = [Console]::OutputEncoding
+    try {
+        [Console]::OutputEncoding = [Text.Encoding]::UTF8
+        & $Cmd
+        "exit=$LASTEXITCODE"
+    } finally {
+        [Console]::OutputEncoding = $enc
+    }
+}
+
+# Одно временное входящее правило ICMPv4 Allow, прогон trip, удаление правила.
+function Test-WithRule([string]$RuleName, [string]$Program) {
+    $extra = @{}
+    if ($Program) { $extra.Program = $Program }
+    $what = if ($Program) { $Program } else { 'any program' }
+    try {
+        New-NetFirewallRule -Name $RuleName -DisplayName $RuleName -Direction Inbound -Protocol ICMPv4 `
+            -Action Allow -Profile Any @extra -ErrorAction Stop | Out-Null
+        Write-Section "trip ICMP with rule $RuleName ($what)" {
+            Invoke-Utf8 { & $Trip $Ip -m pretty -C 3 -t 8 }
+        }
+    } catch {
+        $msg = $_.Exception.Message
+        Write-Section "rule $RuleName ($what)" { "ERROR: $msg" }
+    } finally {
+        Remove-NetFirewallRule -Name $RuleName -ErrorAction SilentlyContinue
+    }
 }
 
 function Test-Admin {
@@ -117,9 +159,12 @@ Write-Section "route to $Ip" {
 Write-Section 'adapters that are up' {
     Get-NetAdapter | Where-Object Status -eq 'Up' |
         Format-Table Name, InterfaceDescription, LinkSpeed -AutoSize
-    Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway } |
-        Format-Table InterfaceAlias, @{ n = 'IPv4'; e = { $_.IPv4Address.IPAddress } },
-                     @{ n = 'Gateway'; e = { $_.IPv4DefaultGateway.NextHop } } -AutoSize
+    # Не Get-NetIPConfiguration: внутри он зовёт sort, а профиль -LinuxFirst
+    # подменяет этот псевдоним на sort.exe - ошибка "unexpected argument '-D'".
+    Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.PrefixOrigin -ne 'WellKnown' } |
+        Format-Table InterfaceAlias, IPAddress, PrefixLength, PrefixOrigin -AutoSize
+    Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
+        Format-Table InterfaceAlias, NextHop, RouteMetric -AutoSize
 }
 
 Write-Section 'VPN / TUN' {
@@ -131,12 +176,17 @@ Write-Section 'VPN / TUN' {
         Format-Table ProcessName, Id, Path -AutoSize
 }
 
-Write-Section 'firewall profiles' {
-    Get-NetFirewallProfile | Format-Table Name, Enabled, DefaultInboundAction, DefaultOutboundAction -AutoSize
+# ActiveStore - то, что действует: локальные правила вместе с правилами
+# групповой политики. AllowInboundRules = False или AllowLocalFirewallRules =
+# False (политика) - и любое своё Allow-правило не действует.
+Write-Section 'firewall profiles (effective, ActiveStore)' {
+    Get-NetFirewallProfile -PolicyStore ActiveStore |
+        Format-List Name, Enabled, DefaultInboundAction, DefaultOutboundAction, AllowInboundRules,
+                    AllowLocalFirewallRules, NotifyOnListen, LogBlocked, LogFileName
 }
 
 Write-Section 'firewall rules for trip.exe (Block wins over Allow)' {
-    Get-NetFirewallApplicationFilter -All | Where-Object { $_.Program -match 'trip' } | ForEach-Object {
+    Get-NetFirewallApplicationFilter -All -PolicyStore ActiveStore | Where-Object { $_.Program -match 'trip' } | ForEach-Object {
         $prog = $_.Program
         $_ | Get-NetFirewallRule | Select-Object Name, DisplayName, Enabled, Direction, Action, Profile,
             @{ n = 'Program'; e = { $prog } }
@@ -144,7 +194,7 @@ Write-Section 'firewall rules for trip.exe (Block wins over Allow)' {
 }
 
 Write-Section 'enabled inbound ICMP rules' {
-    Get-NetFirewallPortFilter -All | Where-Object { $_.Protocol -match '^(ICMPv4|ICMPv6|1|58)$' } | ForEach-Object {
+    Get-NetFirewallPortFilter -All -PolicyStore ActiveStore | Where-Object { $_.Protocol -match '^(ICMPv4|ICMPv6|1|58)$' } | ForEach-Object {
         $proto = $_.Protocol; $type = $_.IcmpType
         $_ | Get-NetFirewallRule |
             Where-Object { $_.Enabled -eq 'True' -and $_.Direction -eq 'Inbound' } |
@@ -166,23 +216,31 @@ Write-Section "tracert $Ip" { tracert -d -h 8 -w 1000 $Ip }
 
 if ($Trip) {
     Write-Section "trip ICMP (direct)" {
-        & $Trip $Ip -m pretty -C 3 -t 8
-        "exit=$LASTEXITCODE"
+        Invoke-Utf8 { & $Trip $Ip -m pretty -C 3 -t 8 }
     }
     Write-Section "trip TCP 443 (direct)" {
-        & $Trip $Ip --tcp -P 443 -m pretty -C 3 -t 8
-        "exit=$LASTEXITCODE"
+        Invoke-Utf8 { & $Trip $Ip --tcp -P 443 -m pretty -C 3 -t 8 }
     }
     Write-Section "trip ICMP verbose (direct)" {
-        & $Trip $Ip -m pretty -C 1 -t 3 -v
-        "exit=$LASTEXITCODE"
+        Invoke-Utf8 { & $Trip $Ip -m pretty -C 1 -t 3 -v --log-format compact }
     }
 }
 
 if (Get-Command mtr -ErrorAction SilentlyContinue) {
     Write-Section "mtr (shim, through gsudo)" {
-        mtr $Ip -m pretty -C 3 -t 8
-        "exit=$LASTEXITCODE"
+        Invoke-Utf8 { mtr $Ip -m pretty -C 3 -t 8 }
+    }
+}
+
+if ($RuleTest -and $Trip) {
+    Write-Host "`r`nTemporary firewall rules WLT_TRIPDIAG_*: each is removed right after its run." -ForegroundColor Yellow
+    $cur = Join-Path $ScoopRoot 'apps\trippy\current'
+    $verDir = if (Test-Path -LiteralPath $cur) { @((Get-Item -LiteralPath $cur).Target)[0] } else { $null }
+    Test-WithRule 'WLT_TRIPDIAG_ANY' $null
+    Test-WithRule 'WLT_TRIPDIAG_CURRENT' $Trip
+    if ($verDir) { Test-WithRule 'WLT_TRIPDIAG_VERSION' (Join-Path $verDir 'trip.exe') }
+    Write-Section 'WLT_TRIPDIAG_* rules left (must be nothing)' {
+        Get-NetFirewallRule -Name 'WLT_TRIPDIAG_*' -ErrorAction SilentlyContinue | Format-Table Name, Enabled -AutoSize
     }
 }
 
@@ -192,8 +250,7 @@ if ($FirewallOff -and $Trip) {
     try {
         Set-NetFirewallProfile -All -Enabled False
         Write-Section "trip ICMP with firewall OFF" {
-            & $Trip $Ip -m pretty -C 3 -t 8
-            "exit=$LASTEXITCODE"
+            Invoke-Utf8 { & $Trip $Ip -m pretty -C 3 -t 8 }
         }
     } finally {
         if ($wasOn.Count) { Set-NetFirewallProfile -Name $wasOn -Enabled True }
