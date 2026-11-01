@@ -71,11 +71,11 @@ Windows. В cmd то же делают макросы doskey: они сраба�
 стрелка вправо её принимает. В Windows PowerShell 5.1 встроен PSReadLine
 2.0, он так не умеет, поэтому скрипт ставит свежий PSReadLine с PSGallery
 для твоего пользователя. Свой PSReadLine 2.1+ скрипт не трогает.
-Ещё с `-LinuxFirst`: [posh-git](https://github.com/dahlbyk/posh-git)
-показывает в приглашении ветку и изменения git и дополняет команды git по Tab;
-[fzf](https://github.com/junegunn/fzf) с
-[PSFzf](https://github.com/kelleyma49/PSFzf) даёт Ctrl+R — нечёткий поиск по
-всей истории — и Ctrl+T — поиск файла с вставкой пути.
+Ещё с `-LinuxFirst` [posh-git](https://github.com/dahlbyk/posh-git)
+показывает в приглашении ветку и изменения git, а команды git дополняет по
+Tab. [fzf](https://github.com/junegunn/fzf) с
+[PSFzf](https://github.com/kelleyma49/PSFzf) добавляет две клавиши: Ctrl+R —
+нечёткий поиск по всей истории, Ctrl+T — поиск файла с вставкой пути.
 Скрипты (`.ps1`) и модули Windows работают как без `-LinuxFirst`, даже если
 запустить их из этого окна. Включить режим позже — снова запустить скрипт с `-LinuxFirst`. `-Uninstall` убирает и блок,
 и макросы.
