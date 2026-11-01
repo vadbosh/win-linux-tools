@@ -46,7 +46,10 @@
     installs each package. mtr, nc and ll are Scoop shims that run trip,
     ncat and eza -la --classify --git --smart-group
     --group-directories-first --time-style "+%F %R:%S" - in PowerShell and cmd, also without -LinuxFirst. For nmap it opens the Npcap
-    installer. At the end it lists, step by step, what it could not install.
+    installer. For mtr it adds inbound Windows Defender Firewall rules for
+    ICMP replies only (ICMPv4 types 0, 3, 11 and ICMPv6 type 129): without
+    them trip shows no hops. The computer still does not answer ping.
+    At the end it lists, step by step, what it could not install.
     Without Visual C++ 2015-2022 x64 most tools do not start. If the script
     cannot install it, it stops before it changes anything else.
 
@@ -58,8 +61,8 @@
     and removes only what the script added: its packages except git, the
     shims mtr, nc, ll, Scoop (if the script installed it and Scoop has no
     other packages), the PowerShell profile blocks, its part of the cmd
-    AutoRun, LS_COLORS and EZA_COLORS, the lsd config.yaml, and the
-    execution policy change. In Far it removes its plugins NetBox and
+    AutoRun, LS_COLORS and EZA_COLORS, the lsd config.yaml, the firewall
+    rules for mtr, and the execution policy change. In Far it removes its plugins NetBox and
     IntChecker2, the FarColorer scheme and the far folder macro, and puts
     back the Far settings, theme and FarColorer style it saved before the
     change. System components that the script installed stay: Visual C++
@@ -198,6 +201,7 @@ IntChecker2 plugins, the dark FarDark-2026 theme and its editor colors (the
 script also turns on VT rendering and the FarColorer TrueMod style).
 Short names, in PowerShell and cmd, also without -LinuxFirst:
   mtr  runs trip through gsudo (asks for admin rights)     nc  runs ncat
+       The firewall gets rules for ICMP replies, or trip shows no hops.
   nmap, nping (with -WithNmap) also run through gsudo
   far  (with -WithFar) opens in the current folder, and when you quit it the
        shell stays in the folder Far was in - like mc (PowerShell and cmd).
@@ -628,9 +632,78 @@ function Install-Npcap {
     } else { Add-Step 20 'Install the Npcap driver. Without it, nmap cannot scan.' $manual }
 }
 
+# --- брандмауэр: ответы ICMP для trip (mtr) ------------------------------------
+# trip ловит ответы узлов на raw-сокете, а Windows Defender Firewall входящий
+# ICMP режет: на Win11 2026-11-01 без правила - ни одного узла, ни по ICMP, ни
+# по TCP. Правило с -Program не помогает: ICMP, пришедший на raw-сокет, с
+# программой не сопоставляется (проверено и через current, и через папку
+# версии). Поэтому правило - для любой программы, но только на типы ответов:
+# ICMPv4 0 Echo Reply, 3 Destination Unreachable, 11 Time Exceeded (проверено
+# tools\Test-Trippy.ps1 -RuleTest: 8 узлов по ICMP и по TCP 443); ICMPv6 129
+# Echo Reply - 1 и 3 Windows уже пропускает правилами CoreNet. Echo Request
+# (ICMPv4 8) не открыт: на ping машина по-прежнему не отвечает.
+$TripRules = [ordered]@{
+    'InstallLinuxTools-trip-ICMPv4' = @{ Protocol = 'ICMPv4'; IcmpType = @('0', '3', '11') }
+    'InstallLinuxTools-trip-ICMPv6' = @{ Protocol = 'ICMPv6'; IcmpType = @('129') }
+}
+function Get-EncodedCommand { param([string] $Command) return [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Command)) }
+function Test-FirewallRule { param([string] $Name) return [bool](Get-NetFirewallRule -Name $Name -ErrorAction SilentlyContinue) }
+function Get-TripRuleCommand {
+    param([string[]] $Names)
+    return (@(foreach ($n in $Names) {
+        $r = $TripRules[$n]
+        "New-NetFirewallRule -Name '$n' -DisplayName 'Install-LinuxTools: trip (mtr) $($r.Protocol) replies' " +
+            "-Group 'Install-LinuxTools' -Direction Inbound -Protocol $($r.Protocol) -IcmpType $($r.IcmpType -join ',') " +
+            "-Action Allow -Profile Any | Out-Null"
+    }) -join '; ')
+}
+function Install-TripFirewall {
+    param($State)
+    if ((Get-ScoopInstalled) -notcontains 'trippy') { return }
+    $ours = @($State.FirewallRules)
+    $foreign = @($TripRules.Keys | Where-Object { $ours -notcontains $_ -and (Test-FirewallRule $_) })
+    foreach ($n in $foreign) { Ok "firewall rule $n already exists, left alone" }
+    $missing = @($TripRules.Keys | Where-Object { $foreign -notcontains $_ -and -not (Test-FirewallRule $_) })
+    if (-not $missing.Count) { Ok 'firewall: ICMP replies for trip (mtr) are allowed'; return }
+    $cmd = Get-TripRuleCommand $missing
+    Write-Host '  ...  firewall: allowing ICMP replies for trip (mtr) (Windows may ask for administrator rights)'
+    if (Test-Admin) {
+        try { Invoke-Expression $cmd } catch { Warn "firewall rule for trip: $($_.Exception.Message)" }
+    } else {
+        $null = Start-Elevated 'powershell.exe' @('-NoProfile', '-EncodedCommand', (Get-EncodedCommand $cmd))
+    }
+    $made = @($missing | Where-Object { Test-FirewallRule $_ })
+    if ($made.Count) {
+        $State.FirewallRules = @($ours + $made | Select-Object -Unique); Save-State $State; $script:Changed = $true
+        Ok "firewall: ICMP replies for trip (mtr) allowed: $($made -join ', ')"
+    }
+    $left = @($missing | Where-Object { $made -notcontains $_ })
+    if ($left.Count) {
+        Add-Step 30 'Allow ICMP replies in Windows Defender Firewall. Without it, mtr (trip) shows no hops.' @(
+            "In an administrator PowerShell:  $(Get-TripRuleCommand $left)")
+    }
+}
+function Remove-TripFirewall {
+    param($State)
+    $names = @($State.FirewallRules)
+    if (-not $names.Count) { return @() }
+    $cmd = "Remove-NetFirewallRule -Name $(@($names | ForEach-Object { "'$_'" }) -join ',') -ErrorAction SilentlyContinue"
+    if (Test-Admin) { Invoke-Expression $cmd }
+    else { $null = Start-Elevated 'powershell.exe' @('-NoProfile', '-EncodedCommand', (Get-EncodedCommand $cmd)) }
+    $left = @($names | Where-Object { Test-FirewallRule $_ })
+    $gone = @($names | Where-Object { $left -notcontains $_ })
+    foreach ($n in $gone) { Ok "removed: firewall rule $n" }
+    if ($left.Count) {
+        Warn "firewall rules not removed: $($left -join ', ')"
+        Add-Step 30 'Remove the firewall rules for trip (mtr):' @("In an administrator PowerShell:  Remove-NetFirewallRule -Name $(@($left | ForEach-Object { "'$_'" }) -join ',')")
+    }
+    $State.FirewallRules = $left; Save-State $State
+    return @($gone | ForEach-Object { "firewall rule $_" })
+}
+
 # --- состояние: что добавил скрипт ------------------------------------------
 function Get-State {
-    $d = [ordered]@{ ScoopInstalledByUs = $false; Packages = @(); ExecPolicyBefore = $null
+    $d = [ordered]@{ ScoopInstalledByUs = $false; Packages = @(); ExecPolicyBefore = $null; FirewallRules = @()
                      ProfileBlock = $false; CmdAutoRunSet = $false; SystemInstalled = @(); Shims = @()
                      FarTheme = $false; FarColorer = $false; FarVtBefore = $null
                      FarColorerBefore = $null; FarThemeBgr = $false; FarThemeRev = 0 }
@@ -2027,6 +2100,7 @@ function Install-AllPackages {
 
     Say "${N3}Network tools"
     foreach ($p in @('bind', 'trippy', 'xh', 'curl', 'wget')) { Install-ScoopPackage $p $null $State }
+    Install-TripFirewall $State
     if (-not (Test-Path -LiteralPath $WhoisJson)) {
         # Проверено 2026-10-29: архив совпал с опубликованным .sha256
         Write-WhoisManifest '1.15.7' 'd310306fe99f2cf742fcbd7f4645de7827656597daee929e0e3ee9e3eda817bb'
@@ -2120,6 +2194,7 @@ if ($Uninstall) {
     if ($st.FarLastDir) { Remove-FarProfileBlock }
     $removed += @(Remove-FarDesktopLink $st)
     $removed += @(Remove-LsColors $st)
+    $removed += @(Remove-TripFirewall $st)
     $removed += @(Remove-ShellModules $st)
     $removed += @(Remove-OhMyPosh $st)
     if (Get-Command scoop -ErrorAction SilentlyContinue) {

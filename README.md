@@ -240,6 +240,14 @@ folder or a desktop shortcut that the script did not create is left alone.
   anything else.
 - **Npcap.** For `-WithNmap` it opens the Npcap installer from the nmap
   package after it checks the signature.
+- **Firewall rules for `mtr`.** Windows Defender Firewall drops the ICMP
+  replies that `trip` waits for, so `mtr` shows no hops. The script adds two
+  inbound rules for any program, for reply types only: ICMPv4 0, 3 and 11
+  (Echo Reply, Destination Unreachable, Time Exceeded) and ICMPv6 129 (Echo
+  Reply). The computer still does not answer ping. A rule for `trip.exe`
+  alone does not work: Windows does not match ICMP on a raw socket to a
+  program. If Windows does not give administrator rights, the summary lists
+  the command to run by hand.
 - **Log.** Every run writes its full output to
   `Install-LinuxTools_<date-time>.log` next to the script.
 - **Summary.** At the end: what works, what not to start, warnings without
@@ -273,9 +281,9 @@ still start a program by its full path, for example
 `C:\Users\<user>\scoop\apps\far\current\Far.exe`, but the commands and
 settings above are not set up for them.
 
-Two exceptions are installed for the whole computer and need administrator
-rights: the Visual C++ 2015–2022 runtime and the Npcap driver.
-`-Uninstall` keeps them.
+Three exceptions are for the whole computer and need administrator rights:
+the Visual C++ 2015–2022 runtime, the Npcap driver and the `mtr` firewall
+rules. `-Uninstall` keeps the first two and removes the rules.
 
 ## Update and removal
 
@@ -289,6 +297,7 @@ theme, and installs tools that were added to the script later.
 - the PowerShell profile block, the cmd macros and the PowerShell modules it installed;
 - clink, its start with cmd, its settings and history (`%LOCALAPPDATA%\clink`);
 - the colors, the Far settings, plugins and desktop shortcuts;
+- the firewall rules for `mtr`;
 - the execution policy change.
 
 `-Uninstall -WithFar` removes only Far: the package, its plugins, theme,
@@ -315,8 +324,8 @@ Full `-Uninstall` keeps:
 ## Requirements
 
 Windows 10 or 11 and Windows PowerShell 5.1 (built in). Internet access to
-GitHub, Scoop and Microsoft. Installing Visual C++ and Npcap asks for
-administrator rights.
+GitHub, Scoop and Microsoft. Installing Visual C++ and Npcap and adding the
+firewall rules for `mtr` ask for administrator rights.
 
 Tested on two machines. On Windows 11, under an account without
 administrator rights: install with every option, `-Update`, `-Uninstall`
