@@ -250,7 +250,8 @@ folder or a desktop shortcut that the script did not create is left alone.
   Reply). The computer still does not answer ping. A rule for `trip.exe`
   alone does not work: Windows does not match ICMP on a raw socket to a
   program. If Windows does not give administrator rights, the summary lists
-  the command to run by hand.
+  the command to run by hand. To add only these rules, without the rest of
+  the script, run `tools\Enable-TripFirewall.ps1`; `-Remove` deletes them.
 - **Log.** Every run writes its full output to
   `Install-LinuxTools_<date-time>.log` next to the script.
 - **Summary.** At the end: what works, what not to start, warnings without

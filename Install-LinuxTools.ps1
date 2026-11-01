@@ -643,6 +643,8 @@ function Install-Npcap {
 # tools\Test-Trippy.ps1 -RuleTest: 8 узлов по ICMP и по TCP 443); ICMPv6 129
 # Echo Reply - 1 и 3 Windows уже пропускает правилами CoreNet. Echo Request
 # (ICMPv4 8) не открыт: на ping машина по-прежнему не отвечает.
+# Те же имена и типы - в tools\Enable-TripFirewall.ps1 (без этого скрипта):
+# правка здесь - правка там.
 $TripRules = [ordered]@{
     'InstallLinuxTools-trip-ICMPv4' = @{ Protocol = 'ICMPv4'; IcmpType = @('0', '3', '11') }
     'InstallLinuxTools-trip-ICMPv6' = @{ Protocol = 'ICMPv6'; IcmpType = @('129') }
