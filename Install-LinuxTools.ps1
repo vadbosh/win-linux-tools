@@ -161,8 +161,9 @@ Options:
                  do not need to be repeated.
   -Update        Update Scoop and the tools that this script installed, and install
                  the tools that were added to this script later.
-  -Uninstall     Remove everything that this script added. git stays:
-                 remove it with  scoop uninstall git
+  -Uninstall     Remove everything that this script added, the firewall
+                 rules for mtr too. git stays: remove it with
+                   scoop uninstall git
   -Uninstall -WithFar, -WithNmap, -WithClink, -WithOhMyPosh
                  Remove only that add-on (Far with its plugins, theme and
                  settings). Everything else stays.
@@ -192,6 +193,13 @@ Options:
 If the tools need the Visual C++ runtime or the Npcap driver, the script
 installs them. At the end it lists, step by step, what it could not do.
 
+Firewall: Windows Defender Firewall drops the ICMP replies that trip (mtr)
+waits for, so trip shows no hops. The script adds two inbound rules for any
+program, for replies only: ICMPv4 0, 3, 11 and ICMPv6 129. The computer
+still does not answer ping. This needs administrator rights; Windows asks
+for them. -Uninstall removes the rules.
+Only these rules, without this script:  tools\Enable-TripFirewall.ps1
+
 Tools: ls cat head tail wc cut sort uniq tr tee du... (uutils-coreutils),
 find xargs, grep, awk, sed, less, jq, which, rg (ripgrep), ugrep (ug), fd,
 lsd, eza (exa), bat, dust, gdu, duf, btm (bottom), procs, gsudo, dig host,
@@ -202,7 +210,6 @@ IntChecker2 plugins, the dark FarDark-2026 theme and its editor colors (the
 script also turns on VT rendering and the FarColorer TrueMod style).
 Short names, in PowerShell and cmd, also without -LinuxFirst:
   mtr  runs trip through gsudo (asks for admin rights)     nc  runs ncat
-       The firewall gets rules for ICMP replies, or trip shows no hops.
   nmap, nping (with -WithNmap) also run through gsudo
   far  (with -WithFar) opens in the current folder, and when you quit it the
        shell stays in the folder Far was in - like mc (PowerShell and cmd).
