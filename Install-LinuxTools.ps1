@@ -133,7 +133,7 @@ function Show-Usage {
     # Справка кусками разного цвета: блок про -LinuxFirst выделен, потому что
     # без него ls, rm, find, curl... в PowerShell и cmd - не Linux-утилиты
     $c = 'Cyan'; $y = 'Yellow'; $g = 'Green'
-    Write-Host 'Install-LinuxTools.ps1 - separate Linux command-line tools for Windows 10/11, installed with Scoop' -ForegroundColor $c
+    Write-Host "Install-LinuxTools.ps1 - separate Linux command-line tools for Windows 10/11,`ninstalled with Scoop" -ForegroundColor $c
     Write-Host @'
 
 Usage in PowerShell:
@@ -142,7 +142,8 @@ If running scripts is blocked, or in cmd:
     powershell -ExecutionPolicy Bypass -File .\Install-LinuxTools.ps1 [option]
 
 Options:
-  (none)         Install the tools. Tools that are already installed stay as they are.
+  (none)         Install the tools. Tools that are already installed stay
+                 as they are.
 '@
     Write-Host '  -LinuxFirst    Install, and make the Linux names win (see below).' -ForegroundColor $y
     Write-Host @'
@@ -159,8 +160,8 @@ Options:
                    .\Install-LinuxTools.ps1 -WithFar
                  Nothing installed earlier is removed, and the other options
                  do not need to be repeated.
-  -Update        Update Scoop and the tools that this script installed, and install
-                 the tools that were added to this script later.
+  -Update        Update Scoop and the tools that this script installed, and
+                 install the tools that were added to this script later.
   -Uninstall     Remove everything that this script added, the firewall
                  rules for mtr too. git stays: remove it with
                    scoop uninstall git
@@ -187,7 +188,7 @@ Options:
   usual commands, also when you start them from that window.
   -Uninstall removes both.
 '@
-    Write-Host '  Use it if you type Linux commands by hand:  .\Install-LinuxTools.ps1 -LinuxFirst' -ForegroundColor $g
+    Write-Host "  Use it if you type Linux commands by hand:`n    .\Install-LinuxTools.ps1 -LinuxFirst" -ForegroundColor $g
     Write-Host @'
 
 If the tools need the Visual C++ runtime or the Npcap driver, the script
@@ -217,13 +218,16 @@ Short names, in PowerShell and cmd, also without -LinuxFirst:
        The desktop also gets two shortcuts, Far4Pwsh and Far4CMD: they open
        PowerShell or cmd and run far, so after you quit Far the window stays
        open in the folder Far was in.
-  ll   runs eza -la --classify --git --smart-group --group-directories-first --time-style "+%F %R:%S"
+  ll   runs eza -la --classify --git --smart-group --group-directories-first
+       --time-style "+%F %R:%S"
 File colors in ll, eza, ls, fd: LS_COLORS and EZA_COLORS (readable folders
 and file types), set for your user unless you already have your own.
 Full table with sources:  Get-Help .\Install-LinuxTools.ps1 -Full
 
-Log of each run, next to the script:  Install-LinuxTools_<date-time>.log
-What the script added:                %LOCALAPPDATA%\Install-LinuxTools\state.json
+Log of each run, next to the script:
+    Install-LinuxTools_<date-time>.log
+What the script added:
+    %LOCALAPPDATA%\Install-LinuxTools\state.json
 '@
 }
 

@@ -34,6 +34,13 @@
 .PARAMETER FirewallOff
     Also run trip with the firewall off (see above).
 
+.PARAMETER Help
+    Show a short help. --help, -h and /? do the same.
+
+.PARAMETER Rest
+    Not an option. It catches unknown arguments, so that the script can
+    show the help instead of an error.
+
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Test-Trippy.ps1
 
@@ -42,10 +49,40 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Target = '8.8.8.8',
+    [Parameter(Position = 0)] [string]$Target = '8.8.8.8',
     [switch]$RuleTest,
-    [switch]$FirewallOff
+    [switch]$FirewallOff,
+    [switch]$Help,
+    # всё, чего PowerShell не узнал как ключ; --help и /? попадают в $Target
+    [Parameter(ValueFromRemainingArguments = $true)] [string[]]$Rest
 )
+
+$helpWords = @('--help', '-help', '--h', '-h', '/?', '/h', '/help', '-?', '?', 'help')
+if ($Help -or $Rest -or $helpWords -contains $Target) {
+    $unknown = @($Rest | Where-Object { $_ -and $helpWords -notcontains $_ })
+    if ($unknown.Count) { Write-Host "Unknown argument: $($unknown -join ' ')`n" -ForegroundColor Red }
+    Write-Host @'
+Test-Trippy.ps1 - diagnostics for trip (mtr) that starts but shows no
+replies. Writes everything to one file in %TEMP% and prints its name.
+
+Usage:
+    .\Test-Trippy.ps1 [-Target <IPv4 or name>] [-RuleTest] [-FirewallOff]
+If running scripts is blocked, or in cmd:
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\Test-Trippy.ps1 [...]
+
+  (none)        Read only: UAC, trip and the mtr shim, route, adapters,
+                VPN/TUN, firewall profiles and rules, security products,
+                ping, tracert, trip over ICMP and TCP 443, mtr.
+  -Target       What to trace. Default 8.8.8.8.
+  -RuleTest     Also run trip with temporary inbound ICMPv4 rules
+                (WLT_TRIPDIAG_*), each removed right after its run.
+  -FirewallOff  Also run trip with the firewall off, then turn it back on.
+                While it is off, the computer is open to the network.
+Run it from an administrator PowerShell.
+Full help:  Get-Help .\Test-Trippy.ps1 -Full
+'@
+    exit $(if ($unknown.Count) { 1 } else { 0 })
+}
 
 $ErrorActionPreference = 'Continue'
 $ScoopRoot = if ($env:SCOOP) { $env:SCOOP } else { Join-Path $env:USERPROFILE 'scoop' }
