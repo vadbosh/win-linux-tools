@@ -298,8 +298,8 @@ The script changes only the environment of the Windows user who runs it:
 Other users of the computer get none of this. Each user runs the script in
 their own account and gets their own copy and settings. An administrator can
 still start a program by its full path, for example
-`C:\Users\<user>\scoop\apps\far\current\Far.exe`, but the commands and
-settings above are not set up for them.
+`C:\Users\<user>\scoop\apps\far\current\Far.exe`. The commands and settings
+above are not set up for them.
 
 Three exceptions are for the whole computer and need administrator rights:
 the Visual C++ 2015–2022 runtime, the Npcap driver and the `mtr` firewall
@@ -324,7 +324,7 @@ theme, and installs tools that were added to the script later.
 settings, desktop shortcuts and the `far` folder hand-over. `-Uninstall
 -WithNmap` removes only nmap and the `nc` shim. `-Uninstall -WithClink`
 removes clink completely: the package, its start with cmd, its keys in
-`.inputrc`, its settings and history; a clink that was there before the
+`.inputrc`, its settings and history. A clink that was there before the
 script stays. The settings and history are first copied to
 `backup\clink_<date-time>` next to the script (to `%TEMP%` if that folder is
 read-only). The history can hold passwords typed in commands, so `backup\` is
@@ -332,7 +332,7 @@ in `.gitignore`. To get them back, run the
 script with `-WithFar` or `-WithNmap` again.
 
 Before it changes anything, `-Uninstall` checks for a running Far and for
-cmd windows with clink: they hold files, so the script stops and asks you to
+cmd windows with clink. They hold files, so the script stops and asks you to
 close them. Run it from PowerShell. That PowerShell window holds PSReadLine
 and PSFzf itself; they are removed when you close the window.
 
@@ -348,11 +348,14 @@ GitHub, Scoop and Microsoft. Installing Visual C++ and Npcap and adding the
 firewall rules for `mtr` ask for administrator rights.
 
 Tested on two machines. On Windows 11, under an account without
-administrator rights: install with every option, `-Update`, `-Uninstall`
-and `-Uninstall` of each add-on, the `Far4Pwsh` and `Far4CMD` shortcuts,
-grey hints in PowerShell and in cmd with clink, posh-git, fzf, oh-my-posh,
-`mtr`, `nmap` and `nping` through gsudo, the `far` folder hand-over in
-PowerShell and cmd.
+administrator rights, these work:
+
+- install with every option, `-Update`, `-Uninstall` and `-Uninstall` of
+  each add-on;
+- the `Far4Pwsh` and `Far4CMD` shortcuts;
+- grey hints in PowerShell and in cmd with clink, posh-git, fzf, oh-my-posh;
+- `mtr`, `nmap` and `nping` through gsudo;
+- the `far` folder hand-over in PowerShell and cmd.
 
 ## License
 

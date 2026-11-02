@@ -354,10 +354,14 @@ GitHub, Scoop и Microsoft. Права администратора запраш
 Visual C++ и Npcap и добавление правил брандмауэра для `mtr`.
 
 Проверено на двух машинах. На Windows 11 под учётной записью без прав
-администратора: установка со всеми ключами, `-Update`, `-Uninstall` и
-удаление каждого дополнения, ярлыки `Far4Pwsh` и `Far4CMD`, серые подсказки в
-PowerShell и в cmd с clink, posh-git, fzf, oh-my-posh, `mtr`, `nmap` и
-`nping` через gsudo, переход в папку Far после выхода в PowerShell и cmd.
+администратора работают:
+
+- установка со всеми ключами, `-Update`, `-Uninstall` и удаление каждого
+  дополнения;
+- ярлыки `Far4Pwsh` и `Far4CMD`;
+- серые подсказки в PowerShell и в cmd с clink, posh-git, fzf, oh-my-posh;
+- `mtr`, `nmap` и `nping` через gsudo;
+- переход в папку Far после выхода в PowerShell и cmd.
 
 ## Лицензия
 
