@@ -2059,6 +2059,9 @@ function Install-Clink {
         # Клавиши Windows (Tab, Ctrl+F, Ctrl+M...) - как ставит установщик clink
         # с enhanced default settings
         & $bat set clink.default_bindings windows 2>&1 | Out-Null
+        # Заставка при старте cmd: одна строка с версией вместо copyright на
+        # четыре строки (выбор пользователя, 2026-11-02)
+        & $bat set clink.logo short 2>&1 | Out-Null
     } finally { $ErrorActionPreference = $eap }
     if ((Get-CmdAutoRun) -notmatch 'clink') {
         Warn 'clink is installed but not started with cmd'

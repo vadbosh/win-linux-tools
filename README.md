@@ -110,7 +110,9 @@ typed start from history (press again for older matches), F7 shows a list.
 `-WithClink` installs clink from Scoop, starts it with every cmd window
 (`clink autorun install`), turns on its grey hints (`autosuggest.enable`) and
 Windows key bindings (`clink.default_bindings windows`, as clink's own
-installer does with enhanced defaults).
+installer does with enhanced defaults). At the start of cmd, clink prints one
+short version line instead of its copyright notice (`clink.logo short`); to
+remove it too, run `clink set clink.logo none`.
 In clink, Right arrow accepts the grey hint, F2 lists all hints, Up and
 Down search history by the typed start, and Tab puts the next matching
 command or file name into the line, Shift+Tab the previous one, as in

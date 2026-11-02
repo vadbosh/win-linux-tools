@@ -113,7 +113,10 @@ Windows. Это касается только имён, которые есть 
 F7 показывает список. `-WithClink` ставит clink из Scoop, запускает его с
 каждым окном cmd (`clink autorun install`), включает серые подсказки
 (`autosuggest.enable`) и клавиши Windows (`clink.default_bindings windows`,
-как делает установщик clink с enhanced defaults). В clink стрелка вправо принимает серую подсказку,
+как делает установщик clink с enhanced defaults). При старте cmd clink
+печатает вместо copyright одну короткую строку с версией
+(`clink.logo short`); убрать и её — `clink set clink.logo none`.
+В clink стрелка вправо принимает серую подсказку,
 F2 показывает все подсказки списком, стрелки вверх и вниз листают историю
 по набранному началу, Tab подставляет в строку следующее подходящее имя
 команды или файла, Shift+Tab — предыдущее, как в PowerShell (эти клавиши
