@@ -882,7 +882,10 @@ function Add-AliasShims {
         $text = Get-Content -LiteralPath $shim -Raw
         if ($text -notmatch '(?m)^args\s*=.*\s--color=auto\s*$') { continue }
         $target = ([regex]::Match($text, '(?m)^path\s*=\s*"?([^"\r\n]+)"?')).Groups[1].Value.Trim()
-        $argLine = ([regex]::Match($text, '(?m)^args\s*=\s*([^\r\n]*)')).Groups[1].Value -replace '\s+--color=auto\s*$', ''
+        # Ключ может стоять и единственным (args = --color=auto: у ls.exe из
+        # 64-битной сборки uutils имени утилиты в args нет) - пробела перед ним
+        # тогда нет (73d322c искал "\s+--color" и молча не снимал его, Win11)
+        $argLine = ([regex]::Match($text, '(?m)^args\s*=\s*([^\r\n]*)')).Groups[1].Value -replace '(^|\s+)--color=auto\s*$', ''
         if (-not $target) { continue }
         Write-Shim $shim $target $argLine.Trim() $null
         Ok "$n -> $n (no --color: the classic console shows its color codes as text)"; $script:Changed = $true
