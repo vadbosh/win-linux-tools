@@ -226,6 +226,8 @@ Short names, in PowerShell and cmd, also without -LinuxFirst:
        --time-style "+%F %R:%S"
 File colors in ll, eza, ls, fd: LS_COLORS and EZA_COLORS (readable folders
 and file types), set for your user unless you already have your own.
+grep, egrep, fgrep highlight matches in bold green: --color=auto in their
+shims, GREP_COLORS=mt=1;32 for your user.
 Full table with sources:  Get-Help .\Install-LinuxTools.ps1 -Full
 
 Log of each run, next to the script:
@@ -856,6 +858,24 @@ function Add-AliasShims {
     if ((Test-Path -LiteralPath $shim) -and @($State.Packages) -contains 'far') {
         if ((Get-Content -LiteralPath $shim -Raw) -match '(?m)^args\s*=\s*"\."\s*$') { Ok 'far -> opens in the current folder' }
         else { Write-Shim $shim (Get-ShimTarget 'far') '"."' $null; Ok 'far -> opens in the current folder (like mc)'; $script:Changed = $true }
+    }
+    # grep, egrep, fgrep - с --color=auto, как alias grep='grep --color=auto' в
+    # Linux: без ключа GNU grep не подсвечивает, GREP_COLORS задаёт только цвет
+    # (сборка mbuilov/grep-windows: "enabled via '--color' option"). auto - в
+    # конвейер и в файл без цветовых кодов. scoop update grep вернёт обычный
+    # ярлык; -Update скрипта добавит ключ снова. Только если grep поставил скрипт.
+    if (@($State.Packages) -contains 'grep') {
+        foreach ($n in 'grep', 'egrep', 'fgrep') {
+            $shim = Join-Path $ShimDir "$n.shim"
+            if (-not (Test-Path -LiteralPath $shim)) { continue }
+            $text = Get-Content -LiteralPath $shim -Raw
+            if ($text -match '--colou?r') { Ok "$n -> grep --color=auto"; continue }
+            $target = ([regex]::Match($text, '(?m)^path\s*=\s*"?([^"\r\n]+)"?')).Groups[1].Value.Trim()
+            if (-not $target) { continue }
+            $argLine = ([regex]::Match($text, '(?m)^args\s*=\s*([^\r\n]*)')).Groups[1].Value.Trim()
+            Write-Shim $shim $target ("--color=auto $argLine").Trim() $null
+            Ok "$n -> grep --color=auto"; $script:Changed = $true
+        }
     }
 }
 
@@ -1862,13 +1882,16 @@ function Set-LsColors {
     param($State)
     Set-UserEnvColors $State 'LS_COLORS' $LsColorsValue
     Set-UserEnvColors $State 'EZA_COLORS' $EzaColorsValue
+    # Найденное grep - жирным зелёным, как export GREP_COLORS='mt=1;32'
+    # (просьба пользователя 2026-11-03); подсветку включает --color=auto в ярлыке
+    if ((Get-ScoopInstalled) -contains 'grep') { Set-UserEnvColors $State 'GREP_COLORS' 'mt=1;32' }
     if ((Get-ScoopInstalled) -contains 'lsd') { Set-LsdConfig $State }
     if ((Get-ScoopInstalled) -contains 'gdu') { Set-GduConfig $State }
 }
 function Remove-LsColors {
     param($State)
     $done = @()
-    foreach ($n in 'LS_COLORS', 'EZA_COLORS') {
+    foreach ($n in 'LS_COLORS', 'EZA_COLORS', 'GREP_COLORS') {
         $flag = "${n}Set" -replace '_', ''
         if (-not $State.$flag) { continue }
         [Environment]::SetEnvironmentVariable($n, $null, 'User')

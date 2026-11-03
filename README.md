@@ -245,6 +245,11 @@ out in the console's dark blue `#0037DA` and are hard to read. The script sets
 and file types. Links get a turquoise background; `ll` shows them as
 `name -> target`, `lsd -l` as `name ⇒ link to target`.
 
+`grep`, `egrep` and `fgrep` highlight what they found in bold green, as with
+`alias grep='grep --color=auto'` and `GREP_COLORS='mt=1;32'` in Linux. The
+script adds `--color=auto` to their shims and sets `GREP_COLORS` for your
+user. In a pipe or a file, grep writes no color codes.
+
 The script does not touch a value you set yourself. New colors appear in new
 windows; cmd sometimes needs you to sign out of Windows and back in.
 
