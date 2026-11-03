@@ -186,7 +186,8 @@ Options:
   PSReadLine, posh-git, PSFzf from PSGallery for that. cmd without
   clink has no such hints: F8 completes from history, F7 lists it.
   History as in bash: 999999 commands, no line that starts with a space, no
-  ls ll la pwd exit history clear; "history" lists all saved commands.
+  ls ll la pwd exit history clear; "history" lists all saved commands, with
+  the time for commands typed after the script set this up.
   Only what you type changes: scripts (.ps1) and Windows modules keep the
   usual commands, also when you start them from that window.
   -Uninstall removes both.
@@ -246,6 +247,9 @@ $Home2     = Join-Path $env:LOCALAPPDATA 'Install-LinuxTools'
 $StateFile = Join-Path $Home2 'state.json'
 $WhoisJson = Join-Path $Home2 'whois.json'
 $MacroFile = Join-Path $Home2 'cmd-macros.txt'
+# Журнал времени команд PowerShell (-LinuxFirst) - рядом с историей PSReadLine
+$TimesName = 'Install-LinuxTools-times.txt'
+$TimesFile = Join-Path $env:APPDATA "Microsoft\Windows\PowerShell\PSReadLine\$TimesName"
 $ScoopRoot = if ($env:SCOOP) { $env:SCOOP } else { Join-Path $env:USERPROFILE 'scoop' }
 $ShimDir   = Join-Path $ScoopRoot 'shims'
 $LogFile   = Join-Path $PSScriptRoot ('Install-LinuxTools_{0}.log' -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
@@ -1553,23 +1557,35 @@ function Add-ProfileBlock {
     # ignorespace, HISTIGNORE='ls:ll:la:pwd:exit:history:clear' - как в bash,
     # по всей строке ("ls -la" сохраняется). Повторы при листании прячет
     # -HistoryNoDuplicates; в файле они остаются (сверять каждую строку с
-    # историей на 999999 строк - дорого). Время команд PSReadLine не хранит.
+    # историей на 999999 строк - дорого).
     # Строки с паролями и т.п. по-прежнему только в памяти -
     # GetDefaultAddToHistoryOption (PSReadLine 2.2+).
-    # history - вся сохранённая история (файл PSReadLine) с номерами, как в
-    # bash; "history 20" - последние 20. Из скриптов - прежний Get-History.
+    # Время (HISTTIMEFORMAT "%F %T"): PSReadLine его не хранит, поэтому свой
+    # журнал рядом с его историей - $TimesName, строка "дата время<Tab>команда",
+    # пишется там же, где PSReadLine пишет строку в файл (MemoryAndFile), а не
+    # для строк "только в памяти". Перевод строки в команде - как \n.
+    # history - вся сохранённая история (файл PSReadLine) с номерами и
+    # временем, как в bash; "history 20" - последние 20. Время сопоставляется
+    # с конца по тексту команды; у команд до журнала - пусто. Из скриптов -
+    # прежний Get-History.
+    $lines += "`$global:WltTimesName = '$TimesName'"
     $lines += @'
-# wlt-profile-rev 2
+# wlt-profile-rev 3
 if ((Get-Module PSReadLine).Version -ge [version]'2.1') {
     try {
         Set-PSReadLineOption -MaximumHistoryCount 999999 -HistoryNoDuplicates
+        $global:WltTimes = Join-Path (Split-Path -Parent (Get-PSReadLineOption).HistorySavePath) $global:WltTimesName
         Set-PSReadLineOption -AddToHistoryHandler {
             param([string]$line)
             if ($line -match '^\s' -or @('ls', 'll', 'la', 'pwd', 'exit', 'history', 'clear') -contains $line.Trim()) { return $false }
+            $r = $true
             if ([Microsoft.PowerShell.PSConsoleReadLine].GetMethod('GetDefaultAddToHistoryOption')) {
-                return [Microsoft.PowerShell.PSConsoleReadLine]::GetDefaultAddToHistoryOption($line)
+                $r = [Microsoft.PowerShell.PSConsoleReadLine]::GetDefaultAddToHistoryOption($line)
             }
-            return $true
+            if ($global:WltTimes -and (($r -is [bool] -and $r) -or "$r" -eq 'MemoryAndFile')) {
+                try { [IO.File]::AppendAllText($global:WltTimes, (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "`t" + ($line -replace "`r?`n", '\n') + "`n") } catch { }
+            }
+            return $r
         }
     } catch { }
 }
@@ -1579,9 +1595,21 @@ function global:history {
     $f = (Get-PSReadLineOption).HistorySavePath
     if (-not $f -or -not (Test-Path -LiteralPath $f)) { return }
     $all = [IO.File]::ReadAllLines($f)
+    $times = @{}
+    if ($global:WltTimes -and (Test-Path -LiteralPath $global:WltTimes)) {
+        $log = [IO.File]::ReadAllLines($global:WltTimes)
+        $j = $log.Count - 1
+        for ($i = $all.Count - 1; $i -ge 0 -and $j -ge 0; $i--) {
+            $k = $log[$j].IndexOf("`t")
+            if ($k -gt 0 -and $log[$j].Substring($k + 1) -eq $all[$i]) { $times[$i] = $log[$j].Substring(0, $k); $j-- }
+        }
+    }
     $from = 0
     if ($args.Count -and "$($args[0])" -match '^\d+$') { $from = [Math]::Max(0, $all.Count - [int]$args[0]) }
-    for ($i = $from; $i -lt $all.Count; $i++) { '{0,6}  {1}' -f ($i + 1), $all[$i] }
+    for ($i = $from; $i -lt $all.Count; $i++) {
+        $t = if ($times.ContainsKey($i)) { $times[$i] } else { ' ' * 19 }
+        '{0,6}  {1}  {2}' -f ($i + 1), $t, $all[$i]
+    }
 }
 '@
     # posh-git: ветка и изменения git в приглашении; PSFzf: Ctrl+R - история,
@@ -2301,6 +2329,10 @@ if ($Uninstall) {
     Say 'Rollback'
     Assert-NothingBusy $st -Far -Clink
     if ($st.ProfileBlock) { Remove-ProfileBlock; $removed += 'PowerShell profile block' }
+    if (Test-Path -LiteralPath $TimesFile) {
+        Remove-Item -LiteralPath $TimesFile -Force -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $TimesFile) { Warn "not removed: $TimesFile" } else { Ok "removed: $TimesFile"; $removed += 'PowerShell history times' }
+    }
     if ($st.CmdAutoRunSet) { Remove-CmdMacros $st; $removed += 'cmd macros' }
     if ($st.FarLastDir) { Remove-FarProfileBlock }
     $removed += @(Remove-FarDesktopLink $st)
@@ -2385,8 +2417,8 @@ if ($Update) {
     if ($st.ProfileBlock) {
         # Блок профиля из прошлых версий скрипта - переписать. Метка ревизии
         # стоит в самом блоке (Add-ProfileBlock); новая правка блока - новый
-        # номер здесь и там. rev 2: история как в bash
-        if (-not (Select-String -LiteralPath $Profiles[0] -SimpleMatch '# wlt-profile-rev 2' -Quiet -ErrorAction SilentlyContinue)) { Add-ProfileBlock }
+        # номер здесь и там. rev 2: история как в bash; rev 3: время команд
+        if (-not (Select-String -LiteralPath $Profiles[0] -SimpleMatch '# wlt-profile-rev 3' -Quiet -ErrorAction SilentlyContinue)) { Add-ProfileBlock }
         Install-ShellModules $st
     }
     Say 'Check'

@@ -97,8 +97,11 @@ History works as in bash with `HISTSIZE=999999`, `ignorespace` and
 command that starts with a space is not saved, and neither is a line that is
 exactly one of those commands; `ls -la` is saved. Arrows do not show a repeat
 twice, but the history file keeps it. `history` lists the whole saved
-history with numbers, `history 20` the last 20. PowerShell does not record
-when a command ran, so there are no times.
+history with numbers and times (`%F %T`), `history 20` the last 20.
+PowerShell does not record when a command ran, so the profile writes the time
+of each saved command to `Install-LinuxTools-times.txt` next to the
+PSReadLine history. Commands from before that have no time. `-Uninstall`
+deletes the file.
 
 Scripts (`.ps1`) and Windows modules work as without `-LinuxFirst`, also
 when you start them from that window. To turn the mode on later, run the script again with `-LinuxFirst`. `-Uninstall` removes
