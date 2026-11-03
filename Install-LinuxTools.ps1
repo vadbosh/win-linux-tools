@@ -226,9 +226,9 @@ Short names, in PowerShell and cmd, also without -LinuxFirst:
        --time-style "+%F %R:%S"
 File colors in ll, eza, ls, fd: LS_COLORS and EZA_COLORS (readable folders
 and file types), set for your user unless you already have your own.
-grep, egrep, fgrep highlight matches in bold green; ls, dir, vdir color
-names by type: --color=auto in their shims, GREP_COLORS=mt=1;32 for your
-user. LESS=-FRX: less shows colors from a pipe.
+grep, egrep, fgrep highlight matches in bold green: --color=auto in their
+shims, GREP_COLORS=mt=1;32 for your user. LESS=-FRX: less shows colors
+from a pipe.
 Full table with sources:  Get-Help .\Install-LinuxTools.ps1 -Full
 
 Log of each run, next to the script:
@@ -305,9 +305,14 @@ $Aliases = [ordered]@{
 # скрипт пускает их через gsudo - только если пакет поставил он сам
 $ElevateShims = [ordered]@{ nmap = 'nmap'; nping = 'nmap' }
 # Ярлыки пакетов, которым скрипт дописывает --color=auto (имя -> пакет), как
-# alias grep='grep --color=auto' и alias ls='ls --color=auto' в Linux
-$ColorShims = [ordered]@{ grep = 'grep'; egrep = 'grep'; fgrep = 'grep'
-                          ls = 'uutils-coreutils'; dir = 'uutils-coreutils'; vdir = 'uutils-coreutils' }
+# alias grep='grep --color=auto' в Linux
+$ColorShims = [ordered]@{ grep = 'grep'; egrep = 'grep'; fgrep = 'grep' }
+# ls, dir, vdir (uutils) с --color=auto были в 9a12eb2 и убраны: uutils ls
+# пишет коды ANSI, не включая их обработку в консоли, и в окне conhost без
+# HKCU\Console\VirtualTerminalLevel=1 вместо цвета видно "←[0m←[1;38;2;…m"
+# (Win11, 2026-11-03). Пользователь выбрал убрать цвет, а не менять реестр.
+# -Update снимает ключ с уже переписанных ярлыков.
+$NoColorShims = [ordered]@{ ls = 'uutils-coreutils'; dir = 'uutils-coreutils'; vdir = 'uutils-coreutils' }
 # Ярлык far - с путём ".": Far открывается в текущей папке, как mc в Linux.
 # Без пути Far открывает папки, где закрылся в прошлый раз (они сохраняются с
 # настройками). Командная строка Far: far [ключи] [путь_активной [путь_пассивной]]
@@ -864,13 +869,24 @@ function Add-AliasShims {
         if ((Get-Content -LiteralPath $shim -Raw) -match '(?m)^args\s*=\s*"\."\s*$') { Ok 'far -> opens in the current folder' }
         else { Write-Shim $shim (Get-ShimTarget 'far') '"."' $null; Ok 'far -> opens in the current folder (like mc)'; $script:Changed = $true }
     }
-    # $ColorShims - с --color=auto: без ключа ни GNU grep (сборка
-    # mbuilov/grep-windows: "enabled via '--color' option"), ни uutils ls
-    # (ls/src/config.rs: цвет только при --color) не раскрашивают; GREP_COLORS
-    # и LS_COLORS задают лишь цвета. auto - в конвейер и в файл без цветовых
-    # кодов. Ключ - в конец args: у uutils первым идёт имя утилиты (args = ls).
+    # $ColorShims - с --color=auto: без ключа GNU grep (сборка
+    # mbuilov/grep-windows: "enabled via '--color' option") не раскрашивает;
+    # GREP_COLORS задаёт лишь цвет. auto - в конвейер и в файл без цветовых
+    # кодов. Ключ - в конец args (у uutils первым шло бы имя утилиты).
     # scoop update вернёт обычный ярлык; -Update скрипта добавит ключ снова.
     # Только для пакетов, которые поставил скрипт.
+    foreach ($n in $NoColorShims.Keys) {
+        if (@($State.Packages) -notcontains $NoColorShims[$n]) { continue }
+        $shim = Join-Path $ShimDir "$n.shim"
+        if (-not (Test-Path -LiteralPath $shim)) { continue }
+        $text = Get-Content -LiteralPath $shim -Raw
+        if ($text -notmatch '(?m)^args\s*=.*\s--color=auto\s*$') { continue }
+        $target = ([regex]::Match($text, '(?m)^path\s*=\s*"?([^"\r\n]+)"?')).Groups[1].Value.Trim()
+        $argLine = ([regex]::Match($text, '(?m)^args\s*=\s*([^\r\n]*)')).Groups[1].Value -replace '\s+--color=auto\s*$', ''
+        if (-not $target) { continue }
+        Write-Shim $shim $target $argLine.Trim() $null
+        Ok "$n -> $n (no --color: the classic console shows its color codes as text)"; $script:Changed = $true
+    }
     foreach ($n in $ColorShims.Keys) {
         if (@($State.Packages) -notcontains $ColorShims[$n]) { continue }
         $shim = Join-Path $ShimDir "$n.shim"
