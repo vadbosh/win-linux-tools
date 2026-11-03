@@ -152,6 +152,7 @@ Options:
   -WithClink     Also install clink: bash-like editing in cmd, grey hints
                  from history (Right arrow accepts), Up/Down search history
                  by the typed start, Tab cycles matches, macros after | and &.
+                 History as in bash, with the time of each command.
   -WithOhMyPosh  Also install oh-my-posh: a PowerShell prompt with the folder,
                  git branch and changes, and the time of a slow command. Plain
                  characters only - no special font needed.
@@ -184,6 +185,8 @@ Options:
   Ctrl+T file search (fzf, PSFzf): the script installs fzf from Scoop and
   PSReadLine, posh-git, PSFzf from PSGallery for that. cmd without
   clink has no such hints: F8 completes from history, F7 lists it.
+  History as in bash: 999999 commands, no line that starts with a space, no
+  ls ll la pwd exit history clear; "history" lists all saved commands.
   Only what you type changes: scripts (.ps1) and Windows modules keep the
   usual commands, also when you start them from that window.
   -Uninstall removes both.
@@ -1546,6 +1549,41 @@ function Add-ProfileBlock {
     $lines = @($Begin) + @(Get-LinuxNameLines)
     # Серая подсказка из истории, Right - принять (PSReadLine 2.1+)
     $lines += "if ((Get-Module PSReadLine).Version -ge [version]'2.1') { try { Set-PSReadLineOption -PredictionSource History; Set-PSReadLineOption -PredictionViewStyle InlineView } catch { } }"
+    # История как в bash (просьба пользователя 2026-11-03): HISTSIZE=999999,
+    # ignorespace, HISTIGNORE='ls:ll:la:pwd:exit:history:clear' - как в bash,
+    # по всей строке ("ls -la" сохраняется). Повторы при листании прячет
+    # -HistoryNoDuplicates; в файле они остаются (сверять каждую строку с
+    # историей на 999999 строк - дорого). Время команд PSReadLine не хранит.
+    # Строки с паролями и т.п. по-прежнему только в памяти -
+    # GetDefaultAddToHistoryOption (PSReadLine 2.2+).
+    # history - вся сохранённая история (файл PSReadLine) с номерами, как в
+    # bash; "history 20" - последние 20. Из скриптов - прежний Get-History.
+    $lines += @'
+# wlt-profile-rev 2
+if ((Get-Module PSReadLine).Version -ge [version]'2.1') {
+    try {
+        Set-PSReadLineOption -MaximumHistoryCount 999999 -HistoryNoDuplicates
+        Set-PSReadLineOption -AddToHistoryHandler {
+            param([string]$line)
+            if ($line -match '^\s' -or @('ls', 'll', 'la', 'pwd', 'exit', 'history', 'clear') -contains $line.Trim()) { return $false }
+            if ([Microsoft.PowerShell.PSConsoleReadLine].GetMethod('GetDefaultAddToHistoryOption')) {
+                return [Microsoft.PowerShell.PSConsoleReadLine]::GetDefaultAddToHistoryOption($line)
+            }
+            return $true
+        }
+    } catch { }
+}
+if (Test-Path Alias:history) { Remove-Item Alias:history -Force }
+function global:history {
+    if ($MyInvocation.CommandOrigin -ne 'Runspace') { Get-History @args; return }
+    $f = (Get-PSReadLineOption).HistorySavePath
+    if (-not $f -or -not (Test-Path -LiteralPath $f)) { return }
+    $all = [IO.File]::ReadAllLines($f)
+    $from = 0
+    if ($args.Count -and "$($args[0])" -match '^\d+$') { $from = [Math]::Max(0, $all.Count - [int]$args[0]) }
+    for ($i = $from; $i -lt $all.Count; $i++) { '{0,6}  {1}' -f ($i + 1), $all[$i] }
+}
+'@
     # posh-git: ветка и изменения git в приглашении; PSFzf: Ctrl+R - история,
     # Ctrl+T - файлы, через fzf
     $lines += "Import-Module posh-git -ErrorAction SilentlyContinue"
@@ -2062,6 +2100,16 @@ function Install-Clink {
         # Заставка при старте cmd: одна строка с версией вместо copyright на
         # четыре строки (выбор пользователя, 2026-11-02)
         & $bat set clink.logo short 2>&1 | Out-Null
+        # История как в bash (2026-11-03): HISTSIZE=999999, ignoreboth и
+        # erasedups (у clink это и так по умолчанию - ставится явно), время
+        # команд в history (формат clink по умолчанию "%F %T", как
+        # HISTTIMEFORMAT). HISTIGNORE: clink сверяет первое слово, не всю
+        # строку, как bash, - "ls -la" тоже не сохранится.
+        & $bat set history.max_lines 999999 2>&1 | Out-Null
+        & $bat set history.ignore_space true 2>&1 | Out-Null
+        & $bat set history.dupe_mode erase_prev 2>&1 | Out-Null
+        & $bat set history.time_stamp show 2>&1 | Out-Null
+        & $bat set history.dont_add_to_history_cmds 'ls ll la pwd exit history clear' 2>&1 | Out-Null
     } finally { $ErrorActionPreference = $eap }
     if ((Get-CmdAutoRun) -notmatch 'clink') {
         Warn 'clink is installed but not started with cmd'
@@ -2335,9 +2383,10 @@ if ($Update) {
     Install-AllPackages $st
     if ($st.CmdAutoRunSet -or $st.FarLastDir) { Set-CmdMacros $st }   # новые утилиты могли добавить имена
     if ($st.ProfileBlock) {
-        # Блок профиля из прошлых версий скрипта - без серой подсказки или с
-        # Set-Alias на всё окно (до WltOrig): переписать
-        if (-not (Select-String -LiteralPath $Profiles[0] -SimpleMatch 'WltOrig' -Quiet -ErrorAction SilentlyContinue)) { Add-ProfileBlock }
+        # Блок профиля из прошлых версий скрипта - переписать. Метка ревизии
+        # стоит в самом блоке (Add-ProfileBlock); новая правка блока - новый
+        # номер здесь и там. rev 2: история как в bash
+        if (-not (Select-String -LiteralPath $Profiles[0] -SimpleMatch '# wlt-profile-rev 2' -Quiet -ErrorAction SilentlyContinue)) { Add-ProfileBlock }
         Install-ShellModules $st
     }
     Say 'Check'

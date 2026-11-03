@@ -91,6 +91,15 @@ the git branch and changes in the prompt. It also completes git commands with
 Tab. [fzf](https://github.com/junegunn/fzf) with
 [PSFzf](https://github.com/kelleyma49/PSFzf) adds two keys. Ctrl+R is a fuzzy
 search over the whole history. Ctrl+T is a file search that pastes the path.
+
+History works as in bash with `HISTSIZE=999999`, `ignorespace` and
+`HISTIGNORE='ls:ll:la:pwd:exit:history:clear'`. It keeps 999999 commands. A
+command that starts with a space is not saved, and neither is a line that is
+exactly one of those commands; `ls -la` is saved. Arrows do not show a repeat
+twice, but the history file keeps it. `history` lists the whole saved
+history with numbers, `history 20` the last 20. PowerShell does not record
+when a command ran, so there are no times.
+
 Scripts (`.ps1`) and Windows modules work as without `-LinuxFirst`, also
 when you start them from that window. To turn the mode on later, run the script again with `-LinuxFirst`. `-Uninstall` removes
 both the block and the macros.
@@ -114,6 +123,11 @@ typed start from history (press again for older matches), F7 shows a list.
 enhanced defaults. At the start of cmd, clink prints one
 short version line instead of its copyright notice (`clink.logo short`); to
 remove it too, run `clink set clink.logo none`.
+
+History in clink is set up as in bash too. It keeps 999999 lines, skips a
+line that starts with a space and keeps no repeats (`erasedups`). `history`
+shows the time of each command (`%F %T`). Unlike bash, clink checks `ls ll la pwd exit history
+clear` against the first word, so `ls -la` is not saved either.
 
 Keys in clink:
 
