@@ -252,9 +252,11 @@ user. In a pipe or a file, grep writes no color codes.
 
 `less` shows colors from a pipe, for example from
 `grep --color=always … | less`, instead of `ESC[` codes. For that the script
-sets `LESS=-FRX` for your user. `F` and `X` are what git uses when `LESS` is
-not set. Short output is printed without the pager, and the screen is not
-cleared on exit.
+sets `LESS=-FRX -Da` for your user. `F` and `X` are what git uses when `LESS`
+is not set. Short output is printed without the pager, and the screen is not
+cleared on exit. `-Da` is an option of less for Windows: it passes color
+codes to the console as they are. Without it, short output came out with no
+color.
 
 The script does not touch a value you set yourself. New colors appear in new
 windows; cmd sometimes needs you to sign out of Windows and back in.

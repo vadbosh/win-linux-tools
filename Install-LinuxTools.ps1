@@ -227,8 +227,8 @@ Short names, in PowerShell and cmd, also without -LinuxFirst:
 File colors in ll, eza, ls, fd: LS_COLORS and EZA_COLORS (readable folders
 and file types), set for your user unless you already have your own.
 grep, egrep, fgrep highlight matches in bold green: --color=auto in their
-shims, GREP_COLORS=mt=1;32 for your user. LESS=-FRX: less shows colors
-from a pipe.
+shims, GREP_COLORS=mt=1;32 for your user. LESS=-FRX -Da: less shows
+colors from a pipe.
 Full table with sources:  Get-Help .\Install-LinuxTools.ps1 -Full
 
 Log of each run, next to the script:
@@ -1913,8 +1913,12 @@ function Set-LsColors {
     # less: R - цвет из конвейера (grep --color=always ... | less) цветом, а не
     # кодами ESC[. F и X - как git ставит сам, пока LESS не задана: короткий
     # вывод без листалки, экран после выхода не чистится; с одним -R git log
-    # всегда открывался бы в листалке (выбор пользователя 2026-11-03)
-    if ((Get-ScoopInstalled) -contains 'less') { Set-UserEnvColors $State 'LESS' '-FRX' }
+    # всегда открывался бы в листалке (выбор пользователя 2026-11-03).
+    # -Da - "SGR mode" сборки для Windows: коды цвета идут в консоль как есть
+    # (output.c, win_flush). Без него less переводит их в цвета консоли сам, и
+    # с -FRX короткий вывод на Win11 выходил без цвета; с -Da - зелёный
+    # (проверено пользователем 2026-11-03). -FRX без -Da было в 9a12eb2.
+    if ((Get-ScoopInstalled) -contains 'less') { Set-UserEnvColors $State 'LESS' '-FRX -Da' }
     if ((Get-ScoopInstalled) -contains 'lsd') { Set-LsdConfig $State }
     if ((Get-ScoopInstalled) -contains 'gdu') { Set-GduConfig $State }
 }
