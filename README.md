@@ -250,6 +250,17 @@ and file types. Links get a turquoise background; `ll` shows them as
 script adds `--color=auto` to their shims and sets `GREP_COLORS` for your
 user. In a pipe or a file, grep writes no color codes.
 
+`ls`, `dir` and `vdir` from uutils color names only with `--color`, as GNU
+`ls` does. The script adds `--color=auto` to their shims too, as
+`alias ls='ls --color=auto'` does in Linux; the colors come from
+`LS_COLORS`.
+
+`less` shows colors from a pipe, for example from
+`grep --color=always … | less`, instead of `ESC[` codes. For that the script
+sets `LESS=-FRX` for your user. `F` and `X` are what git uses when `LESS` is
+not set. Short output is printed without the pager, and the screen is not
+cleared on exit.
+
 The script does not touch a value you set yourself. New colors appear in new
 windows; cmd sometimes needs you to sign out of Windows and back in.
 

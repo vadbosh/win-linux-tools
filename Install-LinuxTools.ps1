@@ -226,8 +226,9 @@ Short names, in PowerShell and cmd, also without -LinuxFirst:
        --time-style "+%F %R:%S"
 File colors in ll, eza, ls, fd: LS_COLORS and EZA_COLORS (readable folders
 and file types), set for your user unless you already have your own.
-grep, egrep, fgrep highlight matches in bold green: --color=auto in their
-shims, GREP_COLORS=mt=1;32 for your user.
+grep, egrep, fgrep highlight matches in bold green; ls, dir, vdir color
+names by type: --color=auto in their shims, GREP_COLORS=mt=1;32 for your
+user. LESS=-FRX: less shows colors from a pipe.
 Full table with sources:  Get-Help .\Install-LinuxTools.ps1 -Full
 
 Log of each run, next to the script:
@@ -303,6 +304,10 @@ $Aliases = [ordered]@{
 # Ярлыки пакетов, которым без прав администратора не работать (raw-сокеты):
 # скрипт пускает их через gsudo - только если пакет поставил он сам
 $ElevateShims = [ordered]@{ nmap = 'nmap'; nping = 'nmap' }
+# Ярлыки пакетов, которым скрипт дописывает --color=auto (имя -> пакет), как
+# alias grep='grep --color=auto' и alias ls='ls --color=auto' в Linux
+$ColorShims = [ordered]@{ grep = 'grep'; egrep = 'grep'; fgrep = 'grep'
+                          ls = 'uutils-coreutils'; dir = 'uutils-coreutils'; vdir = 'uutils-coreutils' }
 # Ярлык far - с путём ".": Far открывается в текущей папке, как mc в Linux.
 # Без пути Far открывает папки, где закрылся в прошлый раз (они сохраняются с
 # настройками). Командная строка Far: far [ключи] [путь_активной [путь_пассивной]]
@@ -859,23 +864,24 @@ function Add-AliasShims {
         if ((Get-Content -LiteralPath $shim -Raw) -match '(?m)^args\s*=\s*"\."\s*$') { Ok 'far -> opens in the current folder' }
         else { Write-Shim $shim (Get-ShimTarget 'far') '"."' $null; Ok 'far -> opens in the current folder (like mc)'; $script:Changed = $true }
     }
-    # grep, egrep, fgrep - с --color=auto, как alias grep='grep --color=auto' в
-    # Linux: без ключа GNU grep не подсвечивает, GREP_COLORS задаёт только цвет
-    # (сборка mbuilov/grep-windows: "enabled via '--color' option"). auto - в
-    # конвейер и в файл без цветовых кодов. scoop update grep вернёт обычный
-    # ярлык; -Update скрипта добавит ключ снова. Только если grep поставил скрипт.
-    if (@($State.Packages) -contains 'grep') {
-        foreach ($n in 'grep', 'egrep', 'fgrep') {
-            $shim = Join-Path $ShimDir "$n.shim"
-            if (-not (Test-Path -LiteralPath $shim)) { continue }
-            $text = Get-Content -LiteralPath $shim -Raw
-            if ($text -match '--colou?r') { Ok "$n -> grep --color=auto"; continue }
-            $target = ([regex]::Match($text, '(?m)^path\s*=\s*"?([^"\r\n]+)"?')).Groups[1].Value.Trim()
-            if (-not $target) { continue }
-            $argLine = ([regex]::Match($text, '(?m)^args\s*=\s*([^\r\n]*)')).Groups[1].Value.Trim()
-            Write-Shim $shim $target ("--color=auto $argLine").Trim() $null
-            Ok "$n -> grep --color=auto"; $script:Changed = $true
-        }
+    # $ColorShims - с --color=auto: без ключа ни GNU grep (сборка
+    # mbuilov/grep-windows: "enabled via '--color' option"), ни uutils ls
+    # (ls/src/config.rs: цвет только при --color) не раскрашивают; GREP_COLORS
+    # и LS_COLORS задают лишь цвета. auto - в конвейер и в файл без цветовых
+    # кодов. Ключ - в конец args: у uutils первым идёт имя утилиты (args = ls).
+    # scoop update вернёт обычный ярлык; -Update скрипта добавит ключ снова.
+    # Только для пакетов, которые поставил скрипт.
+    foreach ($n in $ColorShims.Keys) {
+        if (@($State.Packages) -notcontains $ColorShims[$n]) { continue }
+        $shim = Join-Path $ShimDir "$n.shim"
+        if (-not (Test-Path -LiteralPath $shim)) { continue }
+        $text = Get-Content -LiteralPath $shim -Raw
+        if ($text -match '--colou?r') { Ok "$n -> $n --color=auto"; continue }
+        $target = ([regex]::Match($text, '(?m)^path\s*=\s*"?([^"\r\n]+)"?')).Groups[1].Value.Trim()
+        if (-not $target) { continue }
+        $argLine = ([regex]::Match($text, '(?m)^args\s*=\s*([^\r\n]*)')).Groups[1].Value.Trim()
+        Write-Shim $shim $target ("$argLine --color=auto").Trim() $null
+        Ok "$n -> $n --color=auto"; $script:Changed = $true
     }
 }
 
@@ -1885,13 +1891,18 @@ function Set-LsColors {
     # Найденное grep - жирным зелёным, как export GREP_COLORS='mt=1;32'
     # (просьба пользователя 2026-11-03); подсветку включает --color=auto в ярлыке
     if ((Get-ScoopInstalled) -contains 'grep') { Set-UserEnvColors $State 'GREP_COLORS' 'mt=1;32' }
+    # less: R - цвет из конвейера (grep --color=always ... | less) цветом, а не
+    # кодами ESC[. F и X - как git ставит сам, пока LESS не задана: короткий
+    # вывод без листалки, экран после выхода не чистится; с одним -R git log
+    # всегда открывался бы в листалке (выбор пользователя 2026-11-03)
+    if ((Get-ScoopInstalled) -contains 'less') { Set-UserEnvColors $State 'LESS' '-FRX' }
     if ((Get-ScoopInstalled) -contains 'lsd') { Set-LsdConfig $State }
     if ((Get-ScoopInstalled) -contains 'gdu') { Set-GduConfig $State }
 }
 function Remove-LsColors {
     param($State)
     $done = @()
-    foreach ($n in 'LS_COLORS', 'EZA_COLORS', 'GREP_COLORS') {
+    foreach ($n in 'LS_COLORS', 'EZA_COLORS', 'GREP_COLORS', 'LESS') {
         $flag = "${n}Set" -replace '_', ''
         if (-not $State.$flag) { continue }
         [Environment]::SetEnvironmentVariable($n, $null, 'User')
