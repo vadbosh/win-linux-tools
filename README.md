@@ -291,8 +291,10 @@ files and says so.
 
 The script finds Windows Terminal from the Microsoft Store (and Preview)
 and the one without a package (`%LOCALAPPDATA%\Microsoft\Windows Terminal`).
-It also finds a portable one, with `.portable` next to `WindowsTerminal.exe`,
-if `WindowsTerminal.exe` or `wt.exe` is in `PATH`. A `settings.json` with
+The Store one keeps its settings only after its first start: open it once,
+then run `-Update`. The script also finds a portable one, with `.portable`
+next to `WindowsTerminal.exe`: from Scoop (`extras/windows-terminal`), from
+`PATH`, or the one that is running. A `settings.json` with
 comments (`//`) is left alone: Windows PowerShell 5.1 cannot read it, and the
 summary says what to do by hand.
 

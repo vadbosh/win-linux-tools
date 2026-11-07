@@ -1621,12 +1621,33 @@ function Get-WtSettingsFiles {
         (Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'),
         (Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\LocalState\settings.json'),
         (Join-Path $env:LOCALAPPDATA 'Microsoft\Windows Terminal\settings.json'))
+    # Переносной (файл .portable рядом с WindowsTerminal.exe, настройки - в
+    # settings). Где exe: Terminal из Scoop (extras/windows-terminal сам
+    # кладёт .portable и хранит settings в persist), команда в PATH - через
+    # ярлык Scoop к настоящему exe (у ярлыка в scoop\shims .portable нет: так
+    # Terminal из Scoop не находился, Win11 2026-11-07), и запущенный
+    # Terminal - тогда находится и переносной не из PATH (C:\TOOLS\...).
+    $exes = @(Join-Path $ScoopRoot 'apps\windows-terminal\current\WindowsTerminal.exe')
     foreach ($c in @(Get-Command WindowsTerminal.exe, wt.exe -CommandType Application -ErrorAction SilentlyContinue)) {
-        $dir = Split-Path -Parent $c.Source
-        if (Test-Path -LiteralPath (Join-Path $dir '.portable')) { $files += (Join-Path $dir 'settings\settings.json') }
+        $t = if ((Split-Path -Parent $c.Source) -ieq $ShimDir) { Get-ShimTarget ([IO.Path]::GetFileNameWithoutExtension($c.Source)) } else { $c.Source }
+        if ($t) { $exes += $t }
+    }
+    $exes += @(Get-Process WindowsTerminal -ErrorAction SilentlyContinue | ForEach-Object { $_.Path } | Where-Object { $_ })
+    foreach ($exe in $exes) {
+        $dir = Split-Path -Parent $exe
+        if (-not (Test-Path -LiteralPath (Join-Path $dir '.portable'))) { continue }
+        # Одна папка под двумя путями (Scoop: current - junction на папку
+        # версии) - один файл, путь через current: иначе слияние дважды (и
+        # вторая копия .bak уже не исходная), а после scoop update версия и с
+        # ней путь сменились бы
+        $cur = Join-Path (Split-Path -Parent $dir) 'current'
+        $ci = Get-Item -LiteralPath $cur -ErrorAction SilentlyContinue
+        if ($ci -and $ci.LinkType -and (@($ci.Target)[0].TrimEnd('\') -ieq $dir.TrimEnd('\'))) { $dir = $cur }
+        $files += (Join-Path $dir 'settings\settings.json')
     }
     # Файл есть или есть его папка (Terminal ставился и запускался)
-    return @($files | Select-Object -Unique | Where-Object { (Test-Path -LiteralPath $_) -or (Test-Path -LiteralPath (Split-Path -Parent $_)) })
+    # Sort-Object -Unique - без учёта регистра (пути Windows), Select-Object - с ним
+    return @($files | Sort-Object -Unique | Where-Object { (Test-Path -LiteralPath $_) -or (Test-Path -LiteralPath (Split-Path -Parent $_)) })
 }
 function Set-JsonProp { param($Obj, [string] $Name, $Value) $Obj | Add-Member -NotePropertyName $Name -NotePropertyValue $Value -Force }
 function Merge-WtSettings {

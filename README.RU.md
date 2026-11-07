@@ -290,10 +290,12 @@ One Half Dark Terminal Pro, тема Terminal Pro UI, шрифт, копиров
 файл менялся после того, как его записал скрипт, `-Uninstall` оставляет оба
 файла и сообщает об этом.
 
-Скрипт находит Windows Terminal из Microsoft Store (и Preview), версию без
-пакета (`%LOCALAPPDATA%\Microsoft\Windows Terminal`) и переносную — с файлом
-`.portable` рядом с `WindowsTerminal.exe`, если `WindowsTerminal.exe` или
-`wt.exe` есть в `PATH`. `settings.json` с комментариями (`//`) скрипт не
+Скрипт находит Windows Terminal из Microsoft Store (и Preview) и версию без
+пакета (`%LOCALAPPDATA%\Microsoft\Windows Terminal`). Версия из Store
+заводит свои настройки только после первого запуска: открой её один раз, а
+потом запусти `-Update`. Находит скрипт и переносную — с файлом `.portable`
+рядом с `WindowsTerminal.exe`: из Scoop (`extras/windows-terminal`), из
+`PATH` или запущенную. `settings.json` с комментариями (`//`) скрипт не
 трогает: Windows PowerShell 5.1 его не прочитает, а в итоге будет сказано, что
 сделать руками.
 
