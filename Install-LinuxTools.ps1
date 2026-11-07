@@ -787,7 +787,18 @@ function Save-State {
 
 # --- Scoop -------------------------------------------------------------------
 # Что стоит - по списку Scoop, а не по коду возврата: scoop - PowerShell-скрипт
-function Get-ScoopInstalled { return @(scoop list 6>$null | ForEach-Object { $_.Name }) }
+# Что стоит в Scoop - по папкам apps\<имя>\current (для себя и для всех), не
+# через scoop list: тот вызывает Update-FormatData, а -Uninstall к этому
+# моменту уже удалил PSReadLine 2.4.5, загруженный в окно, - "Could not find
+# file ...PSReadLine.format.ps1xml" (Win11, 2026-11-07), и список пустел.
+# Сам scoop в apps тоже есть - как и в scoop list.
+function Get-ScoopInstalled {
+    $g = if ($env:SCOOP_GLOBAL) { $env:SCOOP_GLOBAL } else { Join-Path $env:ProgramData 'scoop' }
+    return @(foreach ($root in $ScoopRoot, $g) {
+        Get-ChildItem -LiteralPath (Join-Path $root 'apps') -Directory -ErrorAction SilentlyContinue |
+            Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'current') } | ForEach-Object { $_.Name }
+    }) | Sort-Object -Unique
+}
 function Install-ScoopPackage {
     param([string] $Name, [string] $Source, $State, [switch] $NoUpdateScoop)
     if ((Get-ScoopInstalled) -contains $Name) {
@@ -1573,8 +1584,9 @@ function Remove-FarExtras {
 # (у части пакетов оно внутри architecture.64bit). Элемент bin - строка
 # "путь" или список "путь, имя[, ключи]": имя команды - второе.
 function Get-InstalledList {
+    # Версии - из manifest.json пакета, не через scoop list (см. Get-ScoopInstalled)
     $ver = @{}
-    foreach ($o in @(scoop list 6>$null)) { $ver[$o.Name] = $o.Version }
+    foreach ($n in Get-ScoopInstalled) { $v = Get-ScoopAppVersion $ScoopRoot $n; if ($v) { $ver[$n] = $v } }
     $out = @()
     foreach ($pkg in $AllPkgs) {
         if (-not $ver.ContainsKey($pkg)) { continue }
