@@ -2666,8 +2666,23 @@ function Remove-OhMyPosh {
 # apps\clink\current: путь current Scoop переводит на новую версию. Свой
 # clink в AutoRun (не из пакета скрипта) не трогается.
 # Окна cmd, в которые встроен clink: держат его DLL, настройки и историю
+# пакета скрипта (DLL из $ScoopRoot\apps\clink; clink другого пользователя
+# или свой не мешает удалению).
 function Get-ClinkCmdWindows {
-    return @(Get-Process cmd -ErrorAction SilentlyContinue | Where-Object { try { @($_.Modules | Where-Object { $_.ModuleName -like 'clink*' }).Count } catch { $false } })
+    $dir = (Join-Path $ScoopRoot 'apps\clink') + '\'
+    return @(Get-Process cmd -ErrorAction SilentlyContinue | Where-Object { try { @($_.Modules | Where-Object { $_.ModuleName -like 'clink*' -and "$($_.FileName)".StartsWith($dir, [StringComparison]::OrdinalIgnoreCase) }).Count } catch { $false } })
+}
+# Предки этого процесса: PowerShell, запущенный из cmd с clink, сам держит
+# этот cmd открытым - закрыть «все окна cmd» тогда нельзя, нужно отдельное
+# окно PowerShell.
+function Get-AncestorPids {
+    $ids = @(); $cur = $PID
+    for ($i = 0; $i -lt 16; $i++) {
+        $p = Get-CimInstance Win32_Process -Filter "ProcessId=$cur" -ErrorAction SilentlyContinue
+        if (-not $p -or -not $p.ParentProcessId -or $ids -contains [int]$p.ParentProcessId) { break }
+        $cur = [int]$p.ParentProcessId; $ids += $cur
+    }
+    return $ids
 }
 # Перед удалением: Far и окна cmd с clink держат файлы. Тогда ничего не
 # менять и попросить закрыть - иначе часть останется, а полный -Uninstall
@@ -2676,7 +2691,18 @@ function Assert-NothingBusy {
     param($State, [switch] $Far, [switch] $Clink)
     $busy = @()
     if ($Far -and @($State.Packages) -contains 'far' -and (Test-FarRunning)) { $busy += 'Far Manager' }
-    if ($Clink -and @($State.Packages) -contains 'clink' -and (Get-ClinkCmdWindows).Count) { $busy += 'all cmd windows (clink runs in them)' }
+    if ($Clink -and @($State.Packages) -contains 'clink') {
+        $cmds = @(Get-ClinkCmdWindows)
+        if ($cmds.Count) {
+            $mine = @(Get-AncestorPids)
+            if (@($cmds | Where-Object { $mine -contains $_.Id }).Count) {
+                Warn ('This PowerShell was started from cmd with clink (it keeps clink in use). ' +
+                    'Close it, open PowerShell itself (Start menu or Win+R powershell; in Windows Terminal a PowerShell tab), run the same command again - nothing was changed')
+                Finish 1
+            }
+            $busy += "all cmd windows (clink runs in them; cmd PID $(@($cmds | ForEach-Object { $_.Id }) -join ', '))"
+        }
+    }
     if (-not $busy.Count) { return }
     Warn "Close $($busy -join ' and '), then run the same command again from PowerShell - nothing was changed"
     Finish 1
