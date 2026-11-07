@@ -1549,9 +1549,30 @@ function Get-WhoisLatest {
 # убирает, если в нём не осталось пакетов.
 $NerdFontPkg    = 'JetBrainsMono-NF'
 $NerdFontBucket = 'nerd-fonts'
+# Шрифт, поставленный не через Scoop (руками, в C:\Windows\Fonts или для
+# пользователя): файлы JetBrainsMonoNerdFont-*.ttf (v3) или "JetBrains Mono
+# ... Nerd Font Complete.ttf" (v2), записи в HKLM/HKCU ...\Fonts. Такой - не
+# ставить поверх: манифест скопировал бы файлы с теми же именами, и
+# scoop uninstall удалил бы шрифт пользователя.
+$NerdFontRx = '(?i)jetbrains\s*mono.*nerd'
+function Find-OwnNerdFont {
+    foreach ($d in (Join-Path $env:windir 'Fonts'), (Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Fonts')) {
+        $f = Get-ChildItem -LiteralPath $d -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match $NerdFontRx } | Select-Object -First 1
+        if ($f) { return $f.FullName }
+    }
+    foreach ($k in 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts', 'HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts') {
+        $p = Get-ItemProperty -LiteralPath $k -ErrorAction SilentlyContinue
+        if (-not $p) { continue }
+        $hit = $p.PSObject.Properties | Where-Object { $_.Name -notlike 'PS*' -and ($_.Name -match $NerdFontRx -or "$($_.Value)" -match $NerdFontRx) } | Select-Object -First 1
+        if ($hit) { return "$k\$($hit.Name)" }
+    }
+    return $null
+}
 function Install-NerdFont {
     param($State)
     if ((Get-ScoopInstalled) -notcontains $NerdFontPkg) {
+        $own = Find-OwnNerdFont
+        if ($own) { Ok "JetBrainsMono Nerd Font - already installed ($own), left alone"; return }
         $have = @(scoop bucket list 6>$null | ForEach-Object { $_.Name })
         if ($have -notcontains $NerdFontBucket) {
             scoop bucket add $NerdFontBucket 6>$null | Out-Null

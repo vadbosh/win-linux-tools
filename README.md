@@ -267,7 +267,9 @@ windows; cmd sometimes needs you to sign out of Windows and back in.
 The script installs JetBrainsMono Nerd Font from the Scoop bucket
 `nerd-fonts`. The font is installed for your user, without administrator
 rights (Windows 10 1809 or later). `-Uninstall` removes it; close Windows
-Terminal first, because it holds the font.
+Terminal first, because it holds the font. If JetBrainsMono Nerd Font is
+already installed in another way, the script leaves it alone and does not
+install it again.
 
 If Windows Terminal is installed, the script merges
 [`themes/settings.json`](themes/settings.json) into its `settings.json`.

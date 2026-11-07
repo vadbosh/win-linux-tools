@@ -269,7 +269,8 @@ clink, который уже запускается с cmd, скрипт не т
 Скрипт ставит шрифт JetBrainsMono Nerd Font из bucket Scoop `nerd-fonts`.
 Шрифт ставится для твоего пользователя, без прав администратора (Windows 10
 1809 и новее). `-Uninstall` его удаляет; перед этим закрой Windows Terminal:
-он держит шрифт.
+он держит шрифт. Если JetBrainsMono Nerd Font уже поставлен другим способом,
+скрипт его не трогает и второй раз не ставит.
 
 Если Windows Terminal установлен, скрипт сливает
 [`themes/settings.json`](themes/settings.json) с его `settings.json`: цвета
