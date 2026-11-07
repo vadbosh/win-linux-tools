@@ -151,7 +151,7 @@ already start with cmd stays as it is.
 | **`-LinuxFirst`** | **Mode.** Installs, and makes Linux names win over Windows names in PowerShell and cmd: [details](#two-modes-with-and-without--linuxfirst). |
 | `-WithFar` | Also installs Far Manager with plugins, a dark theme and settings: [details](#far-manager). |
 | `-WithNmap` | Also installs `nmap` and `ncat` (`nc`) with the Npcap driver. |
-| `-WithOhMyPosh` | Also installs oh-my-posh with a prompt theme that needs no special font: [`themes/install-linuxtools.omp.json`](themes/install-linuxtools.omp.json). Edit it and run `-Update` to apply. With `-WithClink` too, cmd gets the same prompt: [`themes/oh-my-posh.lua`](themes/oh-my-posh.lua) goes to `%LOCALAPPDATA%\clink`. Other oh-my-posh themes draw icons and need a [Nerd Font](https://www.nerdfonts.com/font-downloads) set in the terminal. |
+| `-WithOhMyPosh` | Also installs oh-my-posh with a prompt theme that needs no special font: [`themes/install-linuxtools.omp.json`](themes/install-linuxtools.omp.json). Edit it and run `-Update` to apply. With `-WithClink` too, cmd gets the same prompt: [`themes/oh-my-posh.lua`](themes/oh-my-posh.lua) goes to `%LOCALAPPDATA%\clink`. Other oh-my-posh themes draw icons and need a Nerd Font: the script installs JetBrainsMono Nerd Font and sets it in Windows Terminal ([Nerd Font and Windows Terminal](#nerd-font-and-windows-terminal)). |
 | `-WithClink` | Also installs [clink](#cmd-and-clink) for cmd: grey hints from history, macros after `\|` and `&`. |
 | `-Update` | Updates Scoop and every tool the script installed, Far plugins included. Installs tools that were added to the script later. |
 | `-Uninstall` | Removes what the script added. Keeps git, Visual C++ and Npcap. |
