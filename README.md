@@ -264,12 +264,24 @@ windows; cmd sometimes needs you to sign out of Windows and back in.
 
 ## Nerd Font and Windows Terminal
 
-The script installs JetBrainsMono Nerd Font from the Scoop bucket
-`nerd-fonts`. The font is installed for your user, without administrator
-rights (Windows 10 1809 or later). `-Uninstall` removes it; close Windows
-Terminal first, because it holds the font. If JetBrainsMono Nerd Font is
-already installed in another way, the script leaves it alone and does not
-install it again.
+The script installs two fonts from the Scoop bucket `nerd-fonts`:
+
+- `JetBrainsMono-NF` (JetBrainsMono Nerd Font) for Windows Terminal;
+- `JetBrainsMono-NF-Mono` (JetBrainsMono Nerd Font Mono) for the classic
+  console: every icon takes one cell.
+
+With administrator rights the fonts are installed for all users
+(`scoop install -g`). The script also adds JetBrainsMono Nerd Font Mono to
+`HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Console\TrueTypeFont`. Only
+then does the font appear in the console font list (window Properties >
+Font). From a window without administrator rights the script asks for them
+through UAC. If you refuse, it installs both fonts for your user: Windows
+Terminal sees them, the console does not.
+
+`-Update` updates the fonts for all users only when the bucket has a new
+version, so UAC does not ask on every run. `-Uninstall` removes the fonts and
+the console list entry; close Windows Terminal and console windows that use
+the font first. A font or a list entry that the script did not add stays.
 
 If Windows Terminal is installed, the script merges
 [`themes/settings.json`](themes/settings.json) into its `settings.json`.
@@ -289,12 +301,14 @@ so your own later changes in Terminal stay. `-Uninstall` puts the copy back.
 If you changed the file after the script wrote it, `-Uninstall` keeps both
 files and says so.
 
-The script finds Windows Terminal from the Microsoft Store (and Preview)
-and the one without a package (`%LOCALAPPDATA%\Microsoft\Windows Terminal`).
-The Store one keeps its settings only after its first start: open it once,
-then run `-Update`. The script also finds a portable one, with `.portable`
-next to `WindowsTerminal.exe`: from Scoop (`extras/windows-terminal`), from
-`PATH`, or the one that is running. A `settings.json` with
+The script changes only a Windows Terminal installed in the system. That is
+the Microsoft Store package and its Preview; Windows 11 and `winget` install
+the same package. The Store one keeps its settings only after its first
+start: open it once, then run `-Update`. A portable Terminal (`.portable`
+next to `WindowsTerminal.exe`, for example from Scoop or from your own
+folder) and one without a package are left alone. If an earlier version of
+the script changed a portable one, the next run puts your file back from the
+copy. A `settings.json` with
 comments (`//`) is left alone: Windows PowerShell 5.1 cannot read it, and the
 summary says what to do by hand.
 
@@ -360,7 +374,7 @@ The script changes only the environment of the Windows user who runs it:
 | gdu colors | `%USERPROFILE%\.gdu.yaml` (only if you have none) |
 | lsd settings | `%APPDATA%\lsd\config.yaml` |
 | Execution policy | scope `CurrentUser` |
-| JetBrainsMono Nerd Font | `%LOCALAPPDATA%\Microsoft\Windows\Fonts`, `HKCU` |
+| JetBrainsMono Nerd Font (only without administrator rights) | `%LOCALAPPDATA%\Microsoft\Windows\Fonts`, `HKCU` |
 | Windows Terminal settings | its `settings.json`, copy in `settings.json.install-linuxtools.bak` |
 | Record of changes | `%LOCALAPPDATA%\Install-LinuxTools\state.json` |
 
@@ -370,9 +384,10 @@ still start a program by its full path, for example
 `C:\Users\<user>\scoop\apps\far\current\Far.exe`. The commands and settings
 above are not set up for them.
 
-Three exceptions are for the whole computer and need administrator rights:
-the Visual C++ 2015–2022 runtime, the Npcap driver and the `mtr` firewall
-rules. `-Uninstall` keeps the first two and removes the rules.
+Four exceptions are for the whole computer and need administrator rights.
+They are the Visual C++ 2015–2022 runtime, the Npcap driver, the `mtr`
+firewall rules, and the Nerd Fonts with their console list entry.
+`-Uninstall` keeps the first two and removes the rest.
 
 ## Update and removal
 

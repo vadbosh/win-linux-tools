@@ -266,11 +266,24 @@ clink, который уже запускается с cmd, скрипт не т
 
 ## Nerd Font и Windows Terminal
 
-Скрипт ставит шрифт JetBrainsMono Nerd Font из bucket Scoop `nerd-fonts`.
-Шрифт ставится для твоего пользователя, без прав администратора (Windows 10
-1809 и новее). `-Uninstall` его удаляет; перед этим закрой Windows Terminal:
-он держит шрифт. Если JetBrainsMono Nerd Font уже поставлен другим способом,
-скрипт его не трогает и второй раз не ставит.
+Скрипт ставит два шрифта из bucket Scoop `nerd-fonts`:
+
+- `JetBrainsMono-NF` (JetBrainsMono Nerd Font) — для Windows Terminal;
+- `JetBrainsMono-NF-Mono` (JetBrainsMono Nerd Font Mono) — для классической
+  консоли: каждый значок занимает одну клетку.
+
+С правами администратора шрифты ставятся для всех пользователей
+(`scoop install -g`). Ещё скрипт добавляет JetBrainsMono Nerd Font Mono в
+`HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Console\TrueTypeFont`:
+только тогда шрифт появляется в списке шрифтов консоли (Свойства окна →
+Шрифт). Из окна без прав администратора скрипт запрашивает их через UAC. Если
+отказать, оба шрифта ставятся только для тебя: Windows Terminal их видит,
+консоль — нет.
+
+`-Update` обновляет шрифты для всех, только когда в bucket вышла новая версия,
+поэтому UAC не спрашивает при каждом запуске. `-Uninstall` удаляет шрифты и
+запись в списке консоли; перед этим закрой Windows Terminal и окна консоли с
+этим шрифтом. Шрифт или запись, которые добавил не скрипт, остаются.
 
 Если Windows Terminal установлен, скрипт сливает
 [`themes/settings.json`](themes/settings.json) с его `settings.json`: цвета
@@ -290,12 +303,13 @@ One Half Dark Terminal Pro, тема Terminal Pro UI, шрифт, копиров
 файл менялся после того, как его записал скрипт, `-Uninstall` оставляет оба
 файла и сообщает об этом.
 
-Скрипт находит Windows Terminal из Microsoft Store (и Preview) и версию без
-пакета (`%LOCALAPPDATA%\Microsoft\Windows Terminal`). Версия из Store
-заводит свои настройки только после первого запуска: открой её один раз, а
-потом запусти `-Update`. Находит скрипт и переносную — с файлом `.portable`
-рядом с `WindowsTerminal.exe`: из Scoop (`extras/windows-terminal`), из
-`PATH` или запущенную. `settings.json` с комментариями (`//`) скрипт не
+Скрипт меняет только Windows Terminal, установленный в систему: пакет из
+Microsoft Store (и тот, что пришёл с Windows 11 или из `winget`) и Preview.
+Версия из Store заводит свои настройки только после первого запуска: открой
+её один раз, а потом запусти `-Update`. Переносной Terminal (`.portable`
+рядом с `WindowsTerminal.exe`, например из Scoop или из своей папки) и версию
+без пакета скрипт не трогает. Если прежняя версия скрипта уже поменяла
+переносной, следующий запуск вернёт твой файл из копии. `settings.json` с комментариями (`//`) скрипт не
 трогает: Windows PowerShell 5.1 его не прочитает, а в итоге будет сказано, что
 сделать руками.
 
@@ -364,7 +378,7 @@ One Half Dark Terminal Pro, тема Terminal Pro UI, шрифт, копиров
 | Цвета gdu | `%USERPROFILE%\.gdu.yaml` (только если своего нет) |
 | Настройки lsd | `%APPDATA%\lsd\config.yaml` |
 | Политика выполнения | область `CurrentUser` |
-| JetBrainsMono Nerd Font | `%LOCALAPPDATA%\Microsoft\Windows\Fonts`, `HKCU` |
+| JetBrainsMono Nerd Font (только без прав администратора) | `%LOCALAPPDATA%\Microsoft\Windows\Fonts`, `HKCU` |
 | Настройки Windows Terminal | его `settings.json`, копия — `settings.json.install-linuxtools.bak` |
 | Учёт изменений | `%LOCALAPPDATA%\Install-LinuxTools\state.json` |
 
@@ -374,9 +388,10 @@ One Half Dark Terminal Pro, тема Terminal Pro UI, шрифт, копиров
 `C:\Users\<user>\scoop\apps\far\current\Far.exe`, но команды и
 настройки из таблицы у него не появятся.
 
-Три исключения действуют на весь компьютер и требуют прав администратора:
-среда Visual C++ 2015–2022, драйвер Npcap и правила брандмауэра для `mtr`.
-`-Uninstall` оставляет первые два и удаляет правила.
+Четыре исключения действуют на весь компьютер и требуют прав администратора:
+среда Visual C++ 2015–2022, драйвер Npcap, правила брандмауэра для `mtr` и
+Nerd Fonts с записью в списке шрифтов консоли. `-Uninstall` оставляет первые
+два и удаляет остальное.
 
 ## Обновление и удаление
 

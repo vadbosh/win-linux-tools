@@ -231,10 +231,13 @@ and file types), set for your user unless you already have your own.
 grep, egrep, fgrep highlight matches in bold green: --color=auto in their
 shims, GREP_COLORS=mt=1;32 for your user. LESS=-FRX -Da: less shows
 colors from a pipe.
-Font: JetBrainsMono Nerd Font (Scoop bucket nerd-fonts), for your user.
-Windows Terminal, if it is there: themes\settings.json is merged into its
-settings.json (colors, theme, font, keys); your own profiles stay. A copy
-of your file is kept next to it; -Uninstall puts it back.
+Fonts: JetBrainsMono Nerd Font (Windows Terminal) and its Mono version (the
+console font list), from the Scoop bucket nerd-fonts. For all users with
+administrator rights (Windows asks), otherwise for your user only.
+Windows Terminal installed from Microsoft Store: themes\settings.json is
+merged into its settings.json (colors, theme, font, keys); your own profiles
+stay. A copy of your file is kept next to it; -Uninstall puts it back.
+A portable Windows Terminal is left alone.
 Full table with sources:  Get-Help .\Install-LinuxTools.ps1 -Full
 
 Log of each run, next to the script:
@@ -1541,59 +1544,184 @@ function Get-WhoisLatest {
 }
 
 # --- Nerd Font и Windows Terminal (просьба пользователя 2026-11-07) ------------
-# JetBrainsMono Nerd Font - из bucket nerd-fonts (matthewjberger/scoop-nerd-fonts).
-# Манифест ставит шрифт для пользователя: Windows 10 1809+, файлы в
-# %LOCALAPPDATA%\Microsoft\Windows\Fonts, запись в HKCU - без прав
-# администратора; scoop uninstall его убирает (не выйдет, пока шрифт занят,
-# например открытым Windows Terminal). Bucket, добавленный скриптом, -Uninstall
-# убирает, если в нём не осталось пакетов.
-$NerdFontPkg    = 'JetBrainsMono-NF'
+# Два пакета из bucket nerd-fonts (matthewjberger/scoop-nerd-fonts):
+# JetBrainsMono-NF - для Windows Terminal (themes\settings.json: "JetBrainsMono
+# Nerd Font"), JetBrainsMono-NF-Mono - для классической консоли (conhost): все
+# значки в одну клетку. Выбор пользователя 2026-11-07: оба, для всех
+# пользователей, а без прав администратора - для себя.
+# Классическая консоль показывает шрифт в своих свойствах, только если он
+# стоит для всех (C:\Windows\Fonts, HKLM), записан в
+# HKLM\...\Console\TrueTypeFont и он Mono - проверено пользователем на Win11:
+# шрифт для одного пользователя и обычный (не Mono) там не видны.
+# Для всех - scoop install -g и запись TrueTypeFont одним запуском с правами
+# администратора (окно UAC, если окно скрипта без них). Отказ в UAC или нет
+# прав - те же пакеты для себя (файлы в %LOCALAPPDATA%\Microsoft\Windows\Fonts,
+# HKCU): Windows Terminal их видит, консоль - нет. -Update обновляет шрифты
+# для всех, только когда в bucket новая версия (иначе UAC при каждом запуске).
+# Шрифт, поставленный не скриптом (Scoop, руками), и чужая запись
+# TrueTypeFont не трогаются. scoop uninstall не удалит шрифт, пока он занят
+# (открытый Windows Terminal или окно консоли с ним).
+$NerdFonts      = [ordered]@{ 'JetBrainsMono-NF' = 'JetBrainsMonoNerdFont-'; 'JetBrainsMono-NF-Mono' = 'JetBrainsMonoNerdFontMono-' }
 $NerdFontBucket = 'nerd-fonts'
-# Шрифт, поставленный не через Scoop (руками, в C:\Windows\Fonts или для
-# пользователя): файлы JetBrainsMonoNerdFont-*.ttf (v3) или "JetBrains Mono
-# ... Nerd Font Complete.ttf" (v2), записи в HKLM/HKCU ...\Fonts. Такой - не
-# ставить поверх: манифест скопировал бы файлы с теми же именами, и
-# scoop uninstall удалил бы шрифт пользователя.
-$NerdFontRx = '(?i)jetbrains\s*mono.*nerd'
+$ConsoleFont    = 'JetBrainsMono Nerd Font Mono'
+$ConsoleFontKey = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Console\TrueTypeFont'
+$ScoopGlobal    = if ($env:SCOOP_GLOBAL) { $env:SCOOP_GLOBAL } else { Join-Path $env:ProgramData 'scoop' }
+function Get-ScoopAppVersion {
+    param([string] $Root, [string] $App)
+    $m = Join-Path $Root "apps\$App\current\manifest.json"
+    if (-not (Test-Path -LiteralPath $m)) { return $null }
+    return "$((Get-Content -LiteralPath $m -Raw | ConvertFrom-Json).version)"
+}
+function Get-BucketVersion {
+    param([string] $App)
+    $m = Join-Path $ScoopRoot "buckets\$NerdFontBucket\bucket\$App.json"
+    if (-not (Test-Path -LiteralPath $m)) { return $null }
+    return "$((Get-Content -LiteralPath $m -Raw | ConvertFrom-Json).version)"
+}
+# Шрифт пакета, поставленный не через Scoop: файлы <префикс>*.ttf (v3) в
+# C:\Windows\Fonts или %LOCALAPPDATA%\Microsoft\Windows\Fonts, записи в
+# HKLM/HKCU ...\Fonts. Поверх такого не ставить: манифест скопировал бы файлы
+# с теми же именами, и scoop uninstall удалил бы шрифт пользователя.
 function Find-OwnNerdFont {
+    param([string] $Prefix)
     foreach ($d in (Join-Path $env:windir 'Fonts'), (Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Fonts')) {
-        $f = Get-ChildItem -LiteralPath $d -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match $NerdFontRx } | Select-Object -First 1
+        $f = Get-ChildItem -LiteralPath $d -File -Filter "$Prefix*" -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($f) { return $f.FullName }
     }
     foreach ($k in 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts', 'HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts') {
         $p = Get-ItemProperty -LiteralPath $k -ErrorAction SilentlyContinue
         if (-not $p) { continue }
-        $hit = $p.PSObject.Properties | Where-Object { $_.Name -notlike 'PS*' -and ($_.Name -match $NerdFontRx -or "$($_.Value)" -match $NerdFontRx) } | Select-Object -First 1
+        $hit = $p.PSObject.Properties | Where-Object { $_.Name -notlike 'PS*' -and "$($_.Value)" -like "*$Prefix*" } | Select-Object -First 1
         if ($hit) { return "$k\$($hit.Name)" }
     }
     return $null
 }
+function Get-ConsoleFontEntry {
+    $p = Get-ItemProperty -LiteralPath $ConsoleFontKey -ErrorAction SilentlyContinue
+    if (-not $p) { return $null }
+    return ($p.PSObject.Properties | Where-Object { $_.Name -notlike 'PS*' -and "$($_.Value)" -eq $ConsoleFont } | Select-Object -First 1)
+}
+# Одна команда с правами администратора: из окна администратора - сразу,
+# иначе через UAC (Start-Elevated). $false - не запустилась (отказ в UAC)
+function Invoke-AsAdmin {
+    param([string] $Command)
+    if (Test-Admin) { try { Invoke-Expression $Command; return $true } catch { Warn $_.Exception.Message; return $false } }
+    $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Command))
+    return [bool](Start-Elevated 'powershell.exe' @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $enc))
+}
 function Install-NerdFont {
     param($State)
-    if ((Get-ScoopInstalled) -notcontains $NerdFontPkg) {
-        $own = Find-OwnNerdFont
-        if ($own) { Ok "JetBrainsMono Nerd Font - already installed ($own), left alone"; return }
-        $have = @(scoop bucket list 6>$null | ForEach-Object { $_.Name })
-        if ($have -notcontains $NerdFontBucket) {
+    $global = @($State.FontsGlobal | Where-Object { $_ })
+    $installed = Get-ScoopInstalled
+    # Записан как поставленный для себя, а копии для себя нет (удалили руками)
+    # - вычеркнуть: иначе -Uninstall звал бы scoop uninstall впустую
+    foreach ($pkg in $NerdFonts.Keys) {
+        if (@($State.Packages) -contains $pkg -and -not (Get-ScoopAppVersion $ScoopRoot $pkg)) {
+            $State.Packages = @($State.Packages | Where-Object { $_ -ne $pkg }); Save-State $State
+        }
+    }
+    $todo = @(); $update = @()
+    foreach ($pkg in $NerdFonts.Keys) {
+        $gv = Get-ScoopAppVersion $ScoopGlobal $pkg
+        if ($global -contains $pkg -and $gv) {
+            $bv = Get-BucketVersion $pkg
+            if ($bv -and $bv -ne $gv) { $update += $pkg } else { Ok "$pkg - installed for all users" }
+            continue
+        }
+        if (@($State.Packages) -contains $pkg -and (Get-ScoopAppVersion $ScoopRoot $pkg)) { $todo += $pkg; continue }  # для себя - перевести на всех
+        if ($gv -or $installed -contains $pkg) { Ok "$pkg - already installed with Scoop (left alone on -Uninstall)"; continue }
+        $own = Find-OwnNerdFont $NerdFonts[$pkg]
+        if ($own) { Ok "$pkg - font already installed ($own), left alone"; continue }
+        $todo += $pkg
+    }
+    $entry = Get-ConsoleFontEntry
+    $needEntry = -not $entry
+    if (-not ($todo.Count -or $update.Count -or $needEntry)) { return }
+    if ($todo.Count -or $update.Count) {
+        if (@(scoop bucket list 6>$null | ForEach-Object { $_.Name }) -notcontains $NerdFontBucket) {
             scoop bucket add $NerdFontBucket 6>$null | Out-Null
             if (@(scoop bucket list 6>$null | ForEach-Object { $_.Name }) -notcontains $NerdFontBucket) {
-                Warn "Scoop bucket $NerdFontBucket not added - JetBrainsMono Nerd Font not installed"; return
+                Warn "Scoop bucket $NerdFontBucket not added - Nerd Fonts not installed"; return
             }
             $State | Add-Member -NotePropertyName NerdFontBucket -NotePropertyValue $true -Force; Save-State $State
             Ok "Scoop bucket $NerdFontBucket added"
         }
     }
-    Install-ScoopPackage $NerdFontPkg "$NerdFontBucket/$NerdFontPkg" $State
+    # Имя записи TrueTypeFont - следующее свободное из нулей: 0, 00, 000...
+    $entryName = $null
+    if ($needEntry) {
+        $p = Get-ItemProperty -LiteralPath $ConsoleFontKey -ErrorAction SilentlyContinue
+        $entryName = '0'; while ($p -and $p.PSObject.Properties[$entryName]) { $entryName += '0' }
+    }
+    $cmd = @()
+    foreach ($pkg in $todo)   { $cmd += "scoop install -g $NerdFontBucket/$pkg" }
+    foreach ($pkg in $update) { $cmd += "scoop update -g $pkg" }
+    if ($entryName) { $cmd += "New-ItemProperty -LiteralPath '$ConsoleFontKey' -Name '$entryName' -Value '$ConsoleFont' -PropertyType String -Force | Out-Null" }
+    Write-Host "  ...  Nerd Fonts for all users and in the console font list (Windows may ask for administrator rights)"
+    $null = Invoke-AsAdmin ($cmd -join '; ')
+    # Что вышло
+    foreach ($pkg in @($todo + $update)) {
+        if (Get-ScoopAppVersion $ScoopGlobal $pkg) {
+            if ($global -notcontains $pkg) { $global += $pkg }
+            Ok "$pkg - installed for all users"; $script:Changed = $true
+            # Был поставлен скриптом для себя - убрать ту копию
+            if (@($State.Packages) -contains $pkg -and (Get-ScoopAppVersion $ScoopRoot $pkg)) {
+                scoop uninstall $pkg | Out-Host
+                if (-not (Get-ScoopAppVersion $ScoopRoot $pkg)) { $State.Packages = @($State.Packages | Where-Object { $_ -ne $pkg }) }
+                else { Warn "$pkg - the copy for your user is still there (close Windows Terminal, run -Update)" }
+            }
+        } elseif ($update -contains $pkg) {
+            Warn "$pkg - not updated (no administrator rights)"
+        } else {
+            # Без прав - для себя: Windows Terminal шрифт увидит, консоль - нет
+            Install-ScoopPackage $pkg "$NerdFontBucket/$pkg" $State
+            if ($pkg -eq 'JetBrainsMono-NF-Mono') { Add-Note 'The console font list (window Properties > Font) shows JetBrainsMono Nerd Font Mono only when it is installed for all users: run -Update in an administrator window' }
+        }
+    }
+    Set-JsonProp $State 'FontsGlobal' $global; Save-State $State
+    if ($entryName) {
+        $e = Get-ConsoleFontEntry
+        if ($e) {
+            Set-JsonProp $State 'ConsoleFontEntry' $e.Name; Save-State $State
+            Ok "console font list: $ConsoleFont (window Properties > Font; new windows)"
+        } else { Warn "$ConsoleFont not added to the console font list (no administrator rights)" }
+    }
+}
+function Remove-NerdFonts {
+    param($State)
+    $global = @($State.FontsGlobal | Where-Object { $_ })
+    $entry = Get-ConsoleFontEntry
+    $ourEntry = $State.ConsoleFontEntry -and $entry -and $entry.Name -eq $State.ConsoleFontEntry
+    if (-not ($global.Count -or $ourEntry)) { return @() }
+    $cmd = @(foreach ($pkg in $global) { "scoop uninstall -g $pkg" })
+    if ($ourEntry) { $cmd += "Remove-ItemProperty -LiteralPath '$ConsoleFontKey' -Name '$($entry.Name)'" }
+    Write-Host '  ...  Nerd Fonts for all users (Windows may ask for administrator rights)'
+    $null = Invoke-AsAdmin ($cmd -join '; ')
+    $done = @(); $left = @()
+    foreach ($pkg in $global) {
+        if (Get-ScoopAppVersion $ScoopGlobal $pkg) { $left += $pkg; Warn "$pkg - not removed (close Windows Terminal and console windows that use it)" }
+        else { Ok "removed: $pkg (all users)"; $done += $pkg }
+    }
+    Set-JsonProp $State 'FontsGlobal' $left
+    if ($ourEntry) {
+        if (Get-ConsoleFontEntry) { Warn "$ConsoleFont is still in the console font list" }
+        else { Ok "removed: $ConsoleFont from the console font list"; $done += 'console font list entry'; $State.PSObject.Properties.Remove('ConsoleFontEntry') }
+    }
+    Save-State $State
+    return $done
 }
 function Remove-NerdFontBucket {
     param($State)
     if (-not $State.NerdFontBucket) { return @() }
     $dir = Join-Path $ScoopRoot "buckets\$NerdFontBucket"
-    $fromIt = @(Get-ScoopInstalled | Where-Object {
-        $m = Join-Path $ScoopRoot "apps\$_\current\install.json"
-        (Test-Path -LiteralPath $m) -and ((Get-Content -LiteralPath $m -Raw | ConvertFrom-Json).bucket -eq $NerdFontBucket)
+    # Пакеты из bucket - и для себя, и для всех (их обновляет тот же bucket)
+    $fromIt = @(foreach ($root in $ScoopRoot, $ScoopGlobal) {
+        Get-ChildItem -LiteralPath (Join-Path $root 'apps') -Directory -ErrorAction SilentlyContinue | Where-Object {
+            $m = Join-Path $_.FullName 'current\install.json'
+            (Test-Path -LiteralPath $m) -and ((Get-Content -LiteralPath $m -Raw | ConvertFrom-Json).bucket -eq $NerdFontBucket)
+        } | ForEach-Object { $_.Name }
     })
-    if ($fromIt.Count) { Ok "Scoop bucket $NerdFontBucket kept: $($fromIt -join ', ') still from it"; return @() }
+    if ($fromIt.Count) { Ok "Scoop bucket $NerdFontBucket kept: $(@($fromIt | Select-Object -Unique) -join ', ') still from it"; return @() }
     scoop bucket rm $NerdFontBucket 6>$null | Out-Null
     if (Test-Path -LiteralPath $dir) { Warn "Scoop bucket $NerdFontBucket not removed"; return @() }
     Ok "removed: Scoop bucket $NerdFontBucket"
@@ -1608,9 +1736,14 @@ function Remove-NerdFontBucket {
 # слиянием - копия settings.json.install-linuxtools.bak рядом с ним (вне
 # %LOCALAPPDATA%\Install-LinuxTools: -Uninstall удаляет ту папку). -Uninstall
 # возвращает копию, только если файл с тех пор не менялся (хэш), иначе
-# оставляет оба файла. Где лежит settings.json: Terminal из Store (и Preview),
-# без пакета (%LOCALAPPDATA%\Microsoft\Windows Terminal) и переносной - файл
-# .portable рядом с WindowsTerminal.exe, настройки в папке settings.
+# оставляет оба файла.
+# Только Terminal, установленный в систему: пакет из Microsoft Store (winget
+# и встроенный в Windows 11 - тот же пакет) и Preview, его LocalState есть
+# после первого запуска. Переносной (.portable рядом с WindowsTerminal.exe:
+# из Scoop, из своей папки) и без пакета (%LOCALAPPDATA%\Microsoft\Windows
+# Terminal) - не трогать: требование пользователя 2026-11-07 ("если он
+# портативный - ничего не менять"). 0dbdcf2 переносной находил и сливал;
+# такую запись Install-TerminalSettings откатывает из копии.
 # Windows PowerShell 5.1: ConvertFrom-Json не читает комментарии // - такой
 # settings.json скрипт не трогает и пишет шаг руками.
 $WtTemplateName = 'settings.json'
@@ -1619,35 +1752,22 @@ $WtBakSuffix    = '.install-linuxtools.bak'
 function Get-WtSettingsFiles {
     $files = @(
         (Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'),
-        (Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\LocalState\settings.json'),
-        (Join-Path $env:LOCALAPPDATA 'Microsoft\Windows Terminal\settings.json'))
-    # Переносной (файл .portable рядом с WindowsTerminal.exe, настройки - в
-    # settings). Где exe: Terminal из Scoop (extras/windows-terminal сам
-    # кладёт .portable и хранит settings в persist), команда в PATH - через
-    # ярлык Scoop к настоящему exe (у ярлыка в scoop\shims .portable нет: так
-    # Terminal из Scoop не находился, Win11 2026-11-07), и запущенный
-    # Terminal - тогда находится и переносной не из PATH (C:\TOOLS\...).
-    $exes = @(Join-Path $ScoopRoot 'apps\windows-terminal\current\WindowsTerminal.exe')
-    foreach ($c in @(Get-Command WindowsTerminal.exe, wt.exe -CommandType Application -ErrorAction SilentlyContinue)) {
-        $t = if ((Split-Path -Parent $c.Source) -ieq $ShimDir) { Get-ShimTarget ([IO.Path]::GetFileNameWithoutExtension($c.Source)) } else { $c.Source }
-        if ($t) { $exes += $t }
+        (Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\LocalState\settings.json'))
+    # Папка LocalState есть - пакет установлен и запускался
+    return @($files | Where-Object { Test-Path -LiteralPath (Split-Path -Parent $_) })
+}
+# Вернуть settings.json, как был до скрипта: копию на место или удалить файл,
+# которого не было. $false - файл с тех пор менялся, оставлены оба
+function Restore-WtRecord {
+    param($Rec)
+    if (-not (Test-Path -LiteralPath $Rec.Path)) { return $true }
+    if ((Get-TextHash $Rec.Path) -ne $Rec.Hash) {
+        Warn "Windows Terminal settings changed since the script wrote them - kept: $($Rec.Path)$(if ($Rec.Backup) { "; yours before: $($Rec.Backup)" })"
+        return $false
     }
-    $exes += @(Get-Process WindowsTerminal -ErrorAction SilentlyContinue | ForEach-Object { $_.Path } | Where-Object { $_ })
-    foreach ($exe in $exes) {
-        $dir = Split-Path -Parent $exe
-        if (-not (Test-Path -LiteralPath (Join-Path $dir '.portable'))) { continue }
-        # Одна папка под двумя путями (Scoop: current - junction на папку
-        # версии) - один файл, путь через current: иначе слияние дважды (и
-        # вторая копия .bak уже не исходная), а после scoop update версия и с
-        # ней путь сменились бы
-        $cur = Join-Path (Split-Path -Parent $dir) 'current'
-        $ci = Get-Item -LiteralPath $cur -ErrorAction SilentlyContinue
-        if ($ci -and $ci.LinkType -and (@($ci.Target)[0].TrimEnd('\') -ieq $dir.TrimEnd('\'))) { $dir = $cur }
-        $files += (Join-Path $dir 'settings\settings.json')
-    }
-    # Файл есть или есть его папка (Terminal ставился и запускался)
-    # Sort-Object -Unique - без учёта регистра (пути Windows), Select-Object - с ним
-    return @($files | Sort-Object -Unique | Where-Object { (Test-Path -LiteralPath $_) -or (Test-Path -LiteralPath (Split-Path -Parent $_)) })
+    if ($Rec.Backup -and (Test-Path -LiteralPath $Rec.Backup)) { Move-Item -LiteralPath $Rec.Backup -Destination $Rec.Path -Force; Ok "restored: $($Rec.Path)" }
+    else { Remove-Item -LiteralPath $Rec.Path -Force; Ok "removed: $($Rec.Path) (there was none before)" }
+    return $true
 }
 function Set-JsonProp { param($Obj, [string] $Name, $Value) $Obj | Add-Member -NotePropertyName $Name -NotePropertyValue $Value -Force }
 function Merge-WtSettings {
@@ -1680,7 +1800,15 @@ function Get-TextHash { param([string] $Path) return (Get-FileHash -LiteralPath 
 function Install-TerminalSettings {
     param($State)
     $files = Get-WtSettingsFiles
-    if (-not $files.Count) { Write-Host '  --   Windows Terminal settings: Windows Terminal not found'; return }
+    # Записанное раньше в переносной или безпакетный Terminal - вернуть
+    $keep = @()
+    foreach ($rec in @($State.TerminalSettings | Where-Object { $_ })) {
+        if ($files -contains $rec.Path) { $keep += $rec; continue }
+        Write-Host "  ...  Windows Terminal settings: $($rec.Path) is not an installed Windows Terminal - putting yours back"
+        $null = Restore-WtRecord $rec
+    }
+    if (@($State.TerminalSettings | Where-Object { $_ }).Count -ne $keep.Count) { Set-JsonProp $State 'TerminalSettings' $keep; Save-State $State }
+    if (-not $files.Count) { Write-Host '  --   Windows Terminal settings: no installed Windows Terminal (Microsoft Store), a portable one is left alone'; return }
     $local = Join-Path (Join-Path (Split-Path -Parent $LogFile) 'themes') $WtTemplateName
     try {
         $tpl = if (Test-Path -LiteralPath $local) { [IO.File]::ReadAllText($local) }
@@ -1722,14 +1850,7 @@ function Remove-TerminalSettings {
     param($State)
     $done = @()
     foreach ($rec in @($State.TerminalSettings | Where-Object { $_ })) {
-        if (-not (Test-Path -LiteralPath $rec.Path)) { continue }
-        if ((Get-TextHash $rec.Path) -ne $rec.Hash) {
-            Warn "Windows Terminal settings changed since the script wrote them - kept: $($rec.Path)$(if ($rec.Backup) { "; yours before: $($rec.Backup)" })"
-            continue
-        }
-        if ($rec.Backup -and (Test-Path -LiteralPath $rec.Backup)) { Move-Item -LiteralPath $rec.Backup -Destination $rec.Path -Force; Ok "restored: $($rec.Path)" }
-        else { Remove-Item -LiteralPath $rec.Path -Force; Ok "removed: $($rec.Path) (there was none before)" }
-        $done += 'Windows Terminal settings'
+        if ((Test-Path -LiteralPath $rec.Path) -and (Restore-WtRecord $rec)) { $done += 'Windows Terminal settings' }
     }
     if ($State.PSObject.Properties['TerminalSettings']) { $State.PSObject.Properties.Remove('TerminalSettings'); Save-State $State }
     return @($done | Select-Object -Unique)
@@ -2616,9 +2737,10 @@ if ($Uninstall) {
         if ($keepGit) { Ok 'git kept'; $kept += 'git (remove it with: scoop uninstall git)' }
         foreach ($p in @($st.Packages | Where-Object { $_ -ne 'git' })) {
             if ((Get-ScoopInstalled) -contains $p) { scoop uninstall $p | Out-Host }
-            if ((Get-ScoopInstalled) -contains $p) { Warn "$p - could not be removed, see the scoop messages above$(if ($p -eq $NerdFontPkg) { ' (close Windows Terminal: it holds the font)' })" }
+            if ((Get-ScoopInstalled) -contains $p) { Warn "$p - could not be removed, see the scoop messages above$(if ($NerdFonts.Contains($p)) { ' (close Windows Terminal: it holds the font)' })" }
             else { Ok "removed: $p"; $removed += $p }
         }
+        $removed += @(Remove-NerdFonts $st)
         $removed += @(Remove-NerdFontBucket $st)
         $left = @(Get-ScoopInstalled | Where-Object { $_ -ne 'scoop' })
         if ($st.ScoopInstalledByUs -and -not $left.Count) {
