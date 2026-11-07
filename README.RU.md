@@ -305,7 +305,10 @@ One Half Dark Terminal Pro, тема Terminal Pro UI, шрифт, копиров
 
 Скрипт меняет только Windows Terminal, установленный в систему: пакет из
 Microsoft Store (и тот, что пришёл с Windows 11 или из `winget`) и Preview.
-Версия из Store заводит свои настройки только после первого запуска: открой
+Где нет ни Store, ни `winget` (Windows 11 IoT LTSC), этот же пакет из
+последнего релиза на GitHub ставит
+[`tools/Install-WindowsTerminal.ps1`](tools/Install-WindowsTerminal.ps1);
+`-Remove` удаляет его полностью. Версия из Store заводит свои настройки только после первого запуска: открой
 её один раз, а потом запусти `-Update`. Переносной Terminal (`.portable`
 рядом с `WindowsTerminal.exe`, например из Scoop или из своей папки) и версию
 без пакета скрипт не трогает. Если прежняя версия скрипта уже поменяла

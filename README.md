@@ -303,7 +303,10 @@ files and says so.
 
 The script changes only a Windows Terminal installed in the system. That is
 the Microsoft Store package and its Preview; Windows 11 and `winget` install
-the same package. The Store one keeps its settings only after its first
+the same package. Where there is no Store and no `winget` (Windows 11 IoT
+LTSC), [`tools/Install-WindowsTerminal.ps1`](tools/Install-WindowsTerminal.ps1)
+installs that package from the latest GitHub release; `-Remove` removes it
+completely. The Store one keeps its settings only after its first
 start: open it once, then run `-Update`. A portable Terminal (`.portable`
 next to `WindowsTerminal.exe`, for example from Scoop or from your own
 folder) and one without a package are left alone. If an earlier version of
