@@ -1,0 +1,135 @@
+{
+    "$help": "https://aka.ms/terminal-documentation",
+    "$schema": "https://aka.ms/terminal-profiles-schema-preview",
+    "actions": [],
+    "copyFormatting": "none",
+    "copyOnSelect": true,
+    "defaultProfile": "{0caa0dad-35be-5f56-a8ff-afceeeaa6101}",
+    "disableAnimations": true,
+    "initialRows": 40,
+    "keybindings":
+    [
+        {
+            "id": "Terminal.CopyToClipboard",
+            "keys": "ctrl+c"
+        },
+        {
+            "id": "Terminal.PasteFromClipboard",
+            "keys": "ctrl+v"
+        },
+        {
+            "id": "Terminal.FindText",
+            "keys": "ctrl+shift+f"
+        },
+        {
+            "id": "Terminal.DuplicatePaneAuto",
+            "keys": "alt+shift+d"
+        }
+    ],
+    "launchMode": "default",
+    "newTabMenu":
+    [
+        {
+            "type": "remainingProfiles"
+        }
+    ],
+    "profiles":
+    {
+        "defaults":
+        {
+            "adjustIndistinguishableColors": "indexed",
+            "antialiasingMode": "grayscale",
+            "background": "#282C34",
+            "bellStyle": "notification",
+            "colorScheme": "One Half Dark Terminal Pro",
+            "compatibility.allowOSC777": true,
+            "compatibility.kittyKeyboardMode": false,
+            "cursorColor": "#7AA2F7",
+            "cursorShape": "filledBox",
+            "font":
+            {
+                "face": "JetBrainsMono Nerd Font",
+                "size": 11.6,
+                "weight": "medium"
+            },
+            "historySize": 10000,
+            "icon": "",
+            "padding": "8, 12",
+            "scrollbarState": "visible",
+            "startingDirectory": null,
+            "tabTitle": "V"
+        },
+        "list":
+        [
+            {
+                "colorScheme": "Dark+",
+                "commandline": "%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                "guid": "{61c54bbd-c2c6-5271-96e7-009a87ff44bf}",
+                "name": "Windows PowerShell",
+                "tabColor": "#184BAD"
+            },
+            {
+                "commandline": "%SystemRoot%\\System32\\cmd.exe",
+                "guid": "{0caa0dad-35be-5f56-a8ff-afceeeaa6101}",
+                "icon": "",
+                "name": "Command Prompt",
+                "tabColor": "#426B5E"
+            }
+        ]
+    },
+    "schemes":
+    [
+        {
+            "background": "#282C34",
+            "black": "#282C34",
+            "blue": "#1565C0",
+            "brightBlack": "#5C6370",
+            "brightBlue": "#42A5F5",
+            "brightCyan": "#4DD0E1",
+            "brightGreen": "#66BB6A",
+            "brightPurple": "#B388FF",
+            "brightRed": "#F07178",
+            "brightWhite": "#FFFFFF",
+            "brightYellow": "#FBC02D",
+            "cursorColor": "#80CBC4",
+            "cyan": "#26A69A",
+            "foreground": "#E6EDF3",
+            "green": "#98C379",
+            "name": "One Half Dark Terminal Pro",
+            "purple": "#9C6ADE",
+            "red": "#E06C75",
+            "selectionBackground": "#3A3F4B",
+            "white": "#D8DEE9",
+            "yellow": "#D19A66"
+        }
+    ],
+    "theme": "Terminal Pro UI",
+    "themes":
+    [
+        {
+            "name": "Terminal Pro UI",
+            "tab":
+            {
+                "background": "#2D313AFF",
+                "iconStyle": "default",
+                "showCloseButton": "never",
+                "unfocusedBackground": null
+            },
+            "tabRow":
+            {
+                "background": "#282C34FF",
+                "unfocusedBackground": null
+            },
+            "window":
+            {
+                "applicationTheme": "dark",
+                "experimental.rainbowFrame": false,
+                "frame": null,
+                "showWorkspacesButton": true,
+                "unfocusedFrame": null,
+                "useMica": false
+            }
+        }
+    ],
+    "warning.confirmOnClose": "never"
+}

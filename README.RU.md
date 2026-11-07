@@ -17,6 +17,7 @@
 - [Утилиты](#утилиты)
 - [Короткие имена](#короткие-имена)
 - [Цвета файлов](#цвета-файлов)
+- [Nerd Font и Windows Terminal](#nerd-font-и-windows-terminal)
 - [Far Manager](#far-manager)
 - [Что ещё делает скрипт](#что-ещё-делает-скрипт)
 - [Для пользователя, а не для компьютера](#для-пользователя-а-не-для-компьютера)
@@ -263,6 +264,38 @@ clink, который уже запускается с cmd, скрипт не т
 Своё значение, заданное раньше, скрипт не трогает. Новые цвета видны в новых
 окнах; для cmd иногда нужно выйти из Windows и войти снова.
 
+## Nerd Font и Windows Terminal
+
+Скрипт ставит шрифт JetBrainsMono Nerd Font из bucket Scoop `nerd-fonts`.
+Шрифт ставится для твоего пользователя, без прав администратора (Windows 10
+1809 и новее). `-Uninstall` его удаляет; перед этим закрой Windows Terminal:
+он держит шрифт.
+
+Если Windows Terminal установлен, скрипт сливает
+[`themes/settings.json`](themes/settings.json) с его `settings.json`: цвета
+One Half Dark Terminal Pro, тема Terminal Pro UI, шрифт, копирование при
+выделении и четыре клавиши. Меняется вот что:
+
+- верхние настройки, например `defaultProfile` (cmd) и `copyOnSelect`;
+- `profiles.defaults` — по полям;
+- профили Windows PowerShell и Command Prompt — по полям;
+- цветовые схемы и темы с тем же именем;
+- клавиши на тех же сочетаниях.
+
+Свои профили, остальные клавиши и `actions` остаются. Перед первым слиянием
+скрипт копирует твой файл в `settings.json.install-linuxtools.bak` рядом с
+ним. `-Update` сливает снова, только когда меняется `themes/settings.json`,
+поэтому твои правки в Terminal остаются. `-Uninstall` возвращает копию. Если
+файл менялся после того, как его записал скрипт, `-Uninstall` оставляет оба
+файла и сообщает об этом.
+
+Скрипт находит Windows Terminal из Microsoft Store (и Preview), версию без
+пакета (`%LOCALAPPDATA%\Microsoft\Windows Terminal`) и переносную — с файлом
+`.portable` рядом с `WindowsTerminal.exe`, если `WindowsTerminal.exe` или
+`wt.exe` есть в `PATH`. `settings.json` с комментариями (`//`) скрипт не
+трогает: Windows PowerShell 5.1 его не прочитает, а в итоге будет сказано, что
+сделать руками.
+
 ## Far Manager
 
 С `-WithFar` скрипт ставит Far Manager и настраивает его:
@@ -328,6 +361,8 @@ clink, который уже запускается с cmd, скрипт не т
 | Цвета gdu | `%USERPROFILE%\.gdu.yaml` (только если своего нет) |
 | Настройки lsd | `%APPDATA%\lsd\config.yaml` |
 | Политика выполнения | область `CurrentUser` |
+| JetBrainsMono Nerd Font | `%LOCALAPPDATA%\Microsoft\Windows\Fonts`, `HKCU` |
+| Настройки Windows Terminal | его `settings.json`, копия — `settings.json.install-linuxtools.bak` |
 | Учёт изменений | `%LOCALAPPDATA%\Install-LinuxTools\state.json` |
 
 Другие пользователи компьютера ничего из этого не получают. Каждый запускает
@@ -353,6 +388,8 @@ clink, который уже запускается с cmd, скрипт не т
 - clink, его запуск с cmd, его настройки и история (`%LOCALAPPDATA%\clink`);
 - цвета, настройки, плагины и ярлыки Far;
 - правила брандмауэра для `mtr`;
+- Nerd Font и bucket Scoop `nerd-fonts`, если его добавил скрипт;
+- настройки Windows Terminal: возвращается копия;
 - изменение политики выполнения.
 
 `-Uninstall -WithFar` удаляет только Far: пакет, его плагины, тему,

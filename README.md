@@ -17,6 +17,7 @@ updates them and removes everything it added. No WSL, no BusyBox, no winget.
 - [Tools](#tools)
 - [Short names](#short-names)
 - [File colors](#file-colors)
+- [Nerd Font and Windows Terminal](#nerd-font-and-windows-terminal)
 - [Far Manager](#far-manager)
 - [What else the script does](#what-else-the-script-does)
 - [Per user, not per computer](#per-user-not-per-computer)
@@ -261,6 +262,38 @@ color.
 The script does not touch a value you set yourself. New colors appear in new
 windows; cmd sometimes needs you to sign out of Windows and back in.
 
+## Nerd Font and Windows Terminal
+
+The script installs JetBrainsMono Nerd Font from the Scoop bucket
+`nerd-fonts`. The font is installed for your user, without administrator
+rights (Windows 10 1809 or later). `-Uninstall` removes it; close Windows
+Terminal first, because it holds the font.
+
+If Windows Terminal is installed, the script merges
+[`themes/settings.json`](themes/settings.json) into its `settings.json`.
+That brings the One Half Dark Terminal Pro colors, the Terminal Pro UI
+theme, the font, copy on select and four keys. These parts change:
+
+- top-level settings such as `defaultProfile` (cmd) and `copyOnSelect`;
+- `profiles.defaults`, field by field;
+- the Windows PowerShell and Command Prompt profiles, field by field;
+- color schemes and themes with the same name;
+- key bindings on the same keys.
+
+Your own profiles, your other keys and `actions` stay. Before the first
+merge the script copies your file to `settings.json.install-linuxtools.bak`
+next to it. `-Update` merges again only when `themes/settings.json` changes,
+so your own later changes in Terminal stay. `-Uninstall` puts the copy back.
+If you changed the file after the script wrote it, `-Uninstall` keeps both
+files and says so.
+
+The script finds Windows Terminal from the Microsoft Store (and Preview)
+and the one without a package (`%LOCALAPPDATA%\Microsoft\Windows Terminal`).
+It also finds a portable one, with `.portable` next to `WindowsTerminal.exe`,
+if `WindowsTerminal.exe` or `wt.exe` is in `PATH`. A `settings.json` with
+comments (`//`) is left alone: Windows PowerShell 5.1 cannot read it, and the
+summary says what to do by hand.
+
 ## Far Manager
 
 With `-WithFar` the script installs Far Manager and sets it up:
@@ -323,6 +356,8 @@ The script changes only the environment of the Windows user who runs it:
 | gdu colors | `%USERPROFILE%\.gdu.yaml` (only if you have none) |
 | lsd settings | `%APPDATA%\lsd\config.yaml` |
 | Execution policy | scope `CurrentUser` |
+| JetBrainsMono Nerd Font | `%LOCALAPPDATA%\Microsoft\Windows\Fonts`, `HKCU` |
+| Windows Terminal settings | its `settings.json`, copy in `settings.json.install-linuxtools.bak` |
 | Record of changes | `%LOCALAPPDATA%\Install-LinuxTools\state.json` |
 
 Other users of the computer get none of this. Each user runs the script in
@@ -348,6 +383,8 @@ theme, and installs tools that were added to the script later.
 - clink, its start with cmd, its settings and history (`%LOCALAPPDATA%\clink`);
 - the colors, the Far settings, plugins and desktop shortcuts;
 - the firewall rules for `mtr`;
+- the Nerd Font and the Scoop bucket `nerd-fonts`, if the script added it;
+- the Windows Terminal settings: the copy goes back;
 - the execution policy change.
 
 `-Uninstall -WithFar` removes only Far: the package, its plugins, theme,

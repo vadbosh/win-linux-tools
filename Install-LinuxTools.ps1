@@ -62,7 +62,9 @@
     shims mtr, nc, ll, Scoop (if the script installed it and Scoop has no
     other packages), the PowerShell profile blocks, its part of the cmd
     AutoRun, LS_COLORS and EZA_COLORS, the lsd config.yaml, the firewall
-    rules for mtr, and the execution policy change. In Far it removes its plugins NetBox and
+    rules for mtr, the Nerd Font, the Windows Terminal settings (puts back
+    the copy it made, if the file was not changed since), and the execution
+    policy change. In Far it removes its plugins NetBox and
     IntChecker2, the FarColorer scheme and the far folder macro, and puts
     back the Far settings, theme and FarColorer style it saved before the
     change. System components that the script installed stay: Visual C++
@@ -229,6 +231,10 @@ and file types), set for your user unless you already have your own.
 grep, egrep, fgrep highlight matches in bold green: --color=auto in their
 shims, GREP_COLORS=mt=1;32 for your user. LESS=-FRX -Da: less shows
 colors from a pipe.
+Font: JetBrainsMono Nerd Font (Scoop bucket nerd-fonts), for your user.
+Windows Terminal, if it is there: themes\settings.json is merged into its
+settings.json (colors, theme, font, keys); your own profiles stay. A copy
+of your file is kept next to it; -Uninstall puts it back.
 Full table with sources:  Get-Help .\Install-LinuxTools.ps1 -Full
 
 Log of each run, next to the script:
@@ -1534,6 +1540,159 @@ function Get-WhoisLatest {
     return [PSCustomObject]@{ Version = $rel.tag_name.TrimStart('v'); Hash = $hash }
 }
 
+# --- Nerd Font и Windows Terminal (просьба пользователя 2026-11-07) ------------
+# JetBrainsMono Nerd Font - из bucket nerd-fonts (matthewjberger/scoop-nerd-fonts).
+# Манифест ставит шрифт для пользователя: Windows 10 1809+, файлы в
+# %LOCALAPPDATA%\Microsoft\Windows\Fonts, запись в HKCU - без прав
+# администратора; scoop uninstall его убирает (не выйдет, пока шрифт занят,
+# например открытым Windows Terminal). Bucket, добавленный скриптом, -Uninstall
+# убирает, если в нём не осталось пакетов.
+$NerdFontPkg    = 'JetBrainsMono-NF'
+$NerdFontBucket = 'nerd-fonts'
+function Install-NerdFont {
+    param($State)
+    if ((Get-ScoopInstalled) -notcontains $NerdFontPkg) {
+        $have = @(scoop bucket list 6>$null | ForEach-Object { $_.Name })
+        if ($have -notcontains $NerdFontBucket) {
+            scoop bucket add $NerdFontBucket 6>$null | Out-Null
+            if (@(scoop bucket list 6>$null | ForEach-Object { $_.Name }) -notcontains $NerdFontBucket) {
+                Warn "Scoop bucket $NerdFontBucket not added - JetBrainsMono Nerd Font not installed"; return
+            }
+            $State | Add-Member -NotePropertyName NerdFontBucket -NotePropertyValue $true -Force; Save-State $State
+            Ok "Scoop bucket $NerdFontBucket added"
+        }
+    }
+    Install-ScoopPackage $NerdFontPkg "$NerdFontBucket/$NerdFontPkg" $State
+}
+function Remove-NerdFontBucket {
+    param($State)
+    if (-not $State.NerdFontBucket) { return @() }
+    $dir = Join-Path $ScoopRoot "buckets\$NerdFontBucket"
+    $fromIt = @(Get-ScoopInstalled | Where-Object {
+        $m = Join-Path $ScoopRoot "apps\$_\current\install.json"
+        (Test-Path -LiteralPath $m) -and ((Get-Content -LiteralPath $m -Raw | ConvertFrom-Json).bucket -eq $NerdFontBucket)
+    })
+    if ($fromIt.Count) { Ok "Scoop bucket $NerdFontBucket kept: $($fromIt -join ', ') still from it"; return @() }
+    scoop bucket rm $NerdFontBucket 6>$null | Out-Null
+    if (Test-Path -LiteralPath $dir) { Warn "Scoop bucket $NerdFontBucket not removed"; return @() }
+    Ok "removed: Scoop bucket $NerdFontBucket"
+    return @("Scoop bucket $NerdFontBucket")
+}
+
+# Windows Terminal: настройки из themes\settings.json (рядом со скриптом или с
+# GitHub) сливаются с его settings.json, а не заменяют его: свои профили и
+# клавиши пользователя остаются. Слияние - верхние настройки (кроме actions),
+# profiles.defaults по полям, профиль с тем же guid по полям (иначе - в
+# конец списка), schemes и themes по name, keybindings по keys. Перед первым
+# слиянием - копия settings.json.install-linuxtools.bak рядом с ним (вне
+# %LOCALAPPDATA%\Install-LinuxTools: -Uninstall удаляет ту папку). -Uninstall
+# возвращает копию, только если файл с тех пор не менялся (хэш), иначе
+# оставляет оба файла. Где лежит settings.json: Terminal из Store (и Preview),
+# без пакета (%LOCALAPPDATA%\Microsoft\Windows Terminal) и переносной - файл
+# .portable рядом с WindowsTerminal.exe, настройки в папке settings.
+# Windows PowerShell 5.1: ConvertFrom-Json не читает комментарии // - такой
+# settings.json скрипт не трогает и пишет шаг руками.
+$WtTemplateName = 'settings.json'
+$WtTemplateUrl  = "https://raw.githubusercontent.com/vadbosh/win-linux-tools/main/themes/$WtTemplateName"
+$WtBakSuffix    = '.install-linuxtools.bak'
+function Get-WtSettingsFiles {
+    $files = @(
+        (Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'),
+        (Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\LocalState\settings.json'),
+        (Join-Path $env:LOCALAPPDATA 'Microsoft\Windows Terminal\settings.json'))
+    foreach ($c in @(Get-Command WindowsTerminal.exe, wt.exe -CommandType Application -ErrorAction SilentlyContinue)) {
+        $dir = Split-Path -Parent $c.Source
+        if (Test-Path -LiteralPath (Join-Path $dir '.portable')) { $files += (Join-Path $dir 'settings\settings.json') }
+    }
+    # Файл есть или есть его папка (Terminal ставился и запускался)
+    return @($files | Select-Object -Unique | Where-Object { (Test-Path -LiteralPath $_) -or (Test-Path -LiteralPath (Split-Path -Parent $_)) })
+}
+function Set-JsonProp { param($Obj, [string] $Name, $Value) $Obj | Add-Member -NotePropertyName $Name -NotePropertyValue $Value -Force }
+function Merge-WtSettings {
+    param($Cur, $Our)
+    foreach ($p in $Our.PSObject.Properties) {
+        if (@('profiles', 'schemes', 'themes', 'keybindings', 'actions') -notcontains $p.Name) { Set-JsonProp $Cur $p.Name $p.Value }
+    }
+    # keybindings: та же клавиша - наша, остальные - как были
+    $ourKeys = @($Our.keybindings | ForEach-Object { $_.keys })
+    Set-JsonProp $Cur 'keybindings' @(@($Cur.keybindings | Where-Object { $_ -and $ourKeys -notcontains $_.keys }) + @($Our.keybindings))
+    foreach ($k in 'schemes', 'themes') {
+        $names = @($Our.$k | ForEach-Object { $_.name })
+        Set-JsonProp $Cur $k @(@($Cur.$k | Where-Object { $_ -and $names -notcontains $_.name }) + @($Our.$k))
+    }
+    # profiles: старый формат - просто массив профилей
+    if (-not $Cur.profiles) { Set-JsonProp $Cur 'profiles' ([PSCustomObject]@{}) }
+    elseif ($Cur.profiles -is [array]) { Set-JsonProp $Cur 'profiles' ([PSCustomObject]@{ list = @($Cur.profiles) }) }
+    if (-not $Cur.profiles.defaults) { Set-JsonProp $Cur.profiles 'defaults' ([PSCustomObject]@{}) }
+    foreach ($p in $Our.profiles.defaults.PSObject.Properties) { Set-JsonProp $Cur.profiles.defaults $p.Name $p.Value }
+    $list = @($Cur.profiles.list | Where-Object { $_ })
+    foreach ($op in @($Our.profiles.list)) {
+        $cp = $list | Where-Object { $_.guid -eq $op.guid } | Select-Object -First 1
+        if ($cp) { foreach ($p in $op.PSObject.Properties) { Set-JsonProp $cp $p.Name $p.Value } }
+        else { $list += $op }
+    }
+    Set-JsonProp $Cur.profiles 'list' $list
+    return $Cur
+}
+function Get-TextHash { param([string] $Path) return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash }
+function Install-TerminalSettings {
+    param($State)
+    $files = Get-WtSettingsFiles
+    if (-not $files.Count) { Write-Host '  --   Windows Terminal settings: Windows Terminal not found'; return }
+    $local = Join-Path (Join-Path (Split-Path -Parent $LogFile) 'themes') $WtTemplateName
+    try {
+        $tpl = if (Test-Path -LiteralPath $local) { [IO.File]::ReadAllText($local) }
+               else { (Invoke-WebRequest -UseBasicParsing -Uri $WtTemplateUrl -TimeoutSec 30).Content }
+        $null = $tpl | ConvertFrom-Json
+    } catch { Warn "Windows Terminal settings: themes\$WtTemplateName not found next to the script and not downloaded: $($_.Exception.Message)"; return }
+    $recs = @($State.TerminalSettings | Where-Object { $_ })
+    $tplHash = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($tpl))) -replace '-', ''
+    foreach ($f in $files) {
+        $rec = $recs | Where-Object { $_.Path -eq $f } | Select-Object -First 1
+        # Уже слито с этой же версией themes\settings.json - не трогать: свои
+        # правки пользователя в Terminal (размер шрифта и т.п.) -Update не затирает
+        if ($rec -and $rec.Template -eq $tplHash -and (Test-Path -LiteralPath $f)) { Ok "Windows Terminal settings - set: $f"; continue }
+        $text = if (Test-Path -LiteralPath $f) { [IO.File]::ReadAllText($f) } else { '' }
+        try { $cur = if ($text.Trim()) { $text | ConvertFrom-Json } else { [PSCustomObject]@{} } }
+        catch {
+            Warn "Windows Terminal settings not changed: $f is not plain JSON (comments?)"
+            Add-Step 70 'Apply the Windows Terminal settings by hand:' @("Open $f and copy in what you need from themes\$WtTemplateName")
+            continue
+        }
+        if (-not $rec) {
+            $bak = "$f$WtBakSuffix"
+            if (Test-Path -LiteralPath $f) { Copy-Item -LiteralPath $f -Destination $bak -Force }
+            $rec = [PSCustomObject]@{ Path = $f; Backup = $(if (Test-Path -LiteralPath $f) { $bak } else { $null }); Hash = $null; Template = $null }
+            $recs += $rec
+        }
+        $new = (Merge-WtSettings $cur ($tpl | ConvertFrom-Json)) | ConvertTo-Json -Depth 32
+        $dir = Split-Path -Parent $f
+        if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+        [IO.File]::WriteAllText($f, $new, (New-Object Text.UTF8Encoding $false))     # без BOM
+        $rec.Hash = Get-TextHash $f
+        Set-JsonProp $rec 'Template' $tplHash
+        Set-JsonProp $State 'TerminalSettings' $recs; Save-State $State
+        $script:Changed = $true
+        Ok "Windows Terminal settings: $f (yours before: $(if ($rec.Backup) { $rec.Backup } else { 'none' }))"
+    }
+}
+function Remove-TerminalSettings {
+    param($State)
+    $done = @()
+    foreach ($rec in @($State.TerminalSettings | Where-Object { $_ })) {
+        if (-not (Test-Path -LiteralPath $rec.Path)) { continue }
+        if ((Get-TextHash $rec.Path) -ne $rec.Hash) {
+            Warn "Windows Terminal settings changed since the script wrote them - kept: $($rec.Path)$(if ($rec.Backup) { "; yours before: $($rec.Backup)" })"
+            continue
+        }
+        if ($rec.Backup -and (Test-Path -LiteralPath $rec.Backup)) { Move-Item -LiteralPath $rec.Backup -Destination $rec.Path -Force; Ok "restored: $($rec.Path)" }
+        else { Remove-Item -LiteralPath $rec.Path -Force; Ok "removed: $($rec.Path) (there was none before)" }
+        $done += 'Windows Terminal settings'
+    }
+    if ($State.PSObject.Properties['TerminalSettings']) { $State.PSObject.Properties.Remove('TerminalSettings'); Save-State $State }
+    return @($done | Select-Object -Unique)
+}
+
 # --- PowerShell-профиль и cmd -------------------------------------------------
 function Remove-ProfileBlock {
     foreach ($p in $Profiles) {
@@ -2310,6 +2469,8 @@ function Install-AllPackages {
     else { Write-Host '  --   clink not installed (add it with -WithClink)' }
     if ($AddOhMyPosh -or $have -contains 'oh-my-posh') { Install-OhMyPosh $State }
     else { Write-Host '  --   oh-my-posh not installed (add it with -WithOhMyPosh)' }
+    Install-NerdFont $State
+    Install-TerminalSettings $State
     Add-AliasShims $State
     Set-LsColors $State
     Update-SessionPath
@@ -2397,6 +2558,8 @@ if ($Uninstall) {
     $removed += @(Remove-TripFirewall $st)
     $removed += @(Remove-ShellModules $st)
     $removed += @(Remove-OhMyPosh $st)
+    # Настройки Terminal - до шрифта: они на него ссылаются
+    $removed += @(Remove-TerminalSettings $st)
     if (Get-Command scoop -ErrorAction SilentlyContinue) {
         $removed += @(Remove-Clink $st)
         $removed += @(Remove-FarExtras $st)
@@ -2409,9 +2572,10 @@ if ($Uninstall) {
         if ($keepGit) { Ok 'git kept'; $kept += 'git (remove it with: scoop uninstall git)' }
         foreach ($p in @($st.Packages | Where-Object { $_ -ne 'git' })) {
             if ((Get-ScoopInstalled) -contains $p) { scoop uninstall $p | Out-Host }
-            if ((Get-ScoopInstalled) -contains $p) { Warn "$p - could not be removed, see the scoop messages above" }
+            if ((Get-ScoopInstalled) -contains $p) { Warn "$p - could not be removed, see the scoop messages above$(if ($p -eq $NerdFontPkg) { ' (close Windows Terminal: it holds the font)' })" }
             else { Ok "removed: $p"; $removed += $p }
         }
+        $removed += @(Remove-NerdFontBucket $st)
         $left = @(Get-ScoopInstalled | Where-Object { $_ -ne 'scoop' })
         if ($st.ScoopInstalledByUs -and -not $left.Count) {
             Write-Host '  ...  Scoop itself - answer y to "Are you sure? (yN)"' -ForegroundColor Magenta
