@@ -2864,6 +2864,11 @@ if ($Update) {
     foreach ($p in @($st.Packages)) {
         # Запущенный Far Scoop не обновит: файлы заняты
         if ($p -eq 'far' -and (Test-FarRunning)) { Warn 'far not updated: Far Manager is running. Close it and run -Update again.'; continue }
+        # В списке, а в Scoop пользователя нет (удалили руками, или шрифт теперь
+        # для всех): scoop update дал бы "isn't installed locally" - пропустить.
+        # Недостающее доставит Install-AllPackages ниже, шрифты для всех
+        # обновит Install-NerdFont (scoop update -g)
+        if (-not (Test-Path -LiteralPath (Join-Path $ScoopRoot "apps\$p\current"))) { continue }
         scoop update $p | Out-Host; Ok "checked: $p"
     }
     # Пакеты, которых ещё нет (добавлены в скрипт после установки), - доставить
