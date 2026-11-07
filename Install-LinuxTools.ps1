@@ -2311,9 +2311,11 @@ function Install-OhMyPosh {
     if (-not $State.OhMyPosh) { $State | Add-Member -NotePropertyName OhMyPosh -NotePropertyValue $true -Force; Save-State $State; $script:Changed = $true }
     Ok 'oh-my-posh: PowerShell prompt with folder, git branch and changes, slow command time (new windows)'
     Set-ClinkOmp $State
-    Write-Host '  !!   oh-my-posh: the script theme uses plain characters. Other oh-my-posh themes draw icons' -ForegroundColor Yellow
-    Write-Host '       and need a Nerd Font set in the terminal: https://www.nerdfonts.com/font-downloads' -ForegroundColor Yellow
-    Write-Host '       (how to: https://ohmyposh.dev/docs/installation/fonts)' -ForegroundColor Yellow
+    # Шрифт с иконками скрипт ставит сам (Install-NerdFont), Windows Terminal
+    # получает его из themes\settings.json - не предупреждение, а подсказка
+    Write-Host '  --   oh-my-posh: the script theme uses plain characters. Other themes draw icons:' -ForegroundColor Gray
+    Write-Host '       they need JetBrainsMono Nerd Font (the script installs it). Windows Terminal' -ForegroundColor Gray
+    Write-Host '       gets it from the script; in another terminal, choose it in its settings.' -ForegroundColor Gray
 }
 function Remove-OhMyPosh {
     param($State)
