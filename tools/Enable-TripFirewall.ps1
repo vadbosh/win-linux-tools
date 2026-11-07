@@ -96,8 +96,20 @@ function Test-Admin {
     return ([Security.Principal.WindowsPrincipal]$id).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+# UAC выключен (EnableLUA = 0): обычный пользователь прав не получит вообще -
+# окна UAC нет, RunAs их не поднимет. Сказать прямо, а не "Not started: ..."
+function Test-UacOff {
+    $v = (Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name EnableLUA -ErrorAction SilentlyContinue).EnableLUA
+    return ($null -ne $v -and [int]$v -eq 0)
+}
+
 # Без прав - тот же скрипт ещё раз, через UAC, и ждать его
 if (-not (Test-Admin)) {
+    if (Test-UacOff) {
+        Write-Host "User Account Control (UAC) is off, and $env:USERNAME is not an administrator:" -ForegroundColor Red
+        Write-Host 'Windows cannot give administrator rights to this user. Run this script as an administrator.' -ForegroundColor Red
+        exit 1
+    }
     if (-not $PSCommandPath) {
         Write-Host 'Run this from an administrator PowerShell.' -ForegroundColor Red
         exit 1
@@ -112,6 +124,18 @@ if (-not (Test-Admin)) {
         exit 1
     }
     exit $p.ExitCode
+}
+
+# Модуль Windows NetSecurity может не загружаться ("found in the module
+# 'NetSecurity', but the module could not be loaded", Win11 2026-11-07) - это
+# ошибка загрузки, -ErrorAction её не глушит. Проверить один раз и выйти с
+# понятным текстом
+try { Import-Module NetSecurity -ErrorAction Stop }
+catch {
+    Write-Host "Windows module NetSecurity does not load: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host 'Without it PowerShell cannot change firewall rules. Check: Import-Module NetSecurity' -ForegroundColor Red
+    if ($Elevated) { Read-Host "`nPress Enter to close this window" | Out-Null }
+    exit 1
 }
 
 $failed = 0
