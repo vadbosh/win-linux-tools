@@ -1985,7 +1985,20 @@ function Install-TerminalSettings {
         $null = Restore-WtRecord $rec
     }
     if (@($State.TerminalSettings | Where-Object { $_ }).Count -ne $keep.Count) { Set-JsonProp $State 'TerminalSettings' $keep; Save-State $State }
-    if (-not $files.Count) { Write-Host '  --   Windows Terminal settings: no installed Windows Terminal (Microsoft Store), a portable one is left alone'; return }
+    if (-not $files.Count) {
+        # Пакет стоит (Windows 11 ставит его всем), но этот пользователь
+        # Terminal ещё не открывал - папки LocalState нет (пользователь test,
+        # Win11, 2026-11-07). Сказать, что сделать, а не "не установлен"
+        $pkg = $null
+        try { $pkg = Get-AppxPackage -Name 'Microsoft.WindowsTerminal*' -ErrorAction Stop | Select-Object -First 1 } catch { }
+        if ($pkg) {
+            Warn "Windows Terminal settings not applied: $($pkg.Name) is installed but was never started by $env:USERNAME"
+            Add-Step 75 'Apply the Windows Terminal settings:' @('Open Windows Terminal once (wt), close it, then run:  .\Install-LinuxTools.ps1 -Update')
+        } else {
+            Write-Host '  --   Windows Terminal settings: no Windows Terminal from Microsoft Store; a portable one is left alone'
+        }
+        return
+    }
     $local = Join-Path (Join-Path (Split-Path -Parent $LogFile) 'themes') $WtTemplateName
     try {
         $tpl = if (Test-Path -LiteralPath $local) { [IO.File]::ReadAllText($local) }
