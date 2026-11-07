@@ -2793,6 +2793,19 @@ function Install-AllPackages {
 
 Start-Log
 Show-RightsNotice
+# Окно, где уже был -Uninstall: PSReadLine/PSFzf ещё в памяти, а их файлы
+# (*.format.ps1xml) удалены - каждая команда Scoop с Update-FormatData
+# пишет "Could not find file ...PSReadLine.format.ps1xml" (Win11,
+# 2026-11-07, установка сразу после -Uninstall в том же окне). Модуль,
+# загруженный из папки, где его файлов уже нет, - стоп до любых изменений.
+$gone = @(Get-Module | Where-Object { $_.ModuleBase -and $_.ModuleBase.StartsWith($PsModDir, [StringComparison]::OrdinalIgnoreCase) } | Where-Object {
+    -not (Test-Path -LiteralPath $_.Path) -or @($_.ExportedFormatFiles | Where-Object { -not (Test-Path -LiteralPath $_) }).Count
+})
+if ($gone.Count) {
+    Write-Host "`nSTOP: this PowerShell window still uses $(@($gone | ForEach-Object { "$($_.Name) $($_.Version)" }) -join ', '), whose files were removed (by -Uninstall?)." -ForegroundColor Red
+    Write-Host 'Close this window, open a new PowerShell window and run the script there. Nothing was changed.' -ForegroundColor Red
+    Finish 2
+}
 
 # =============================================================================
 #  -Uninstall
