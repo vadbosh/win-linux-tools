@@ -320,7 +320,8 @@ With `-WithFar` the script installs Far Manager and sets it up:
   (checksums). Each comes from the latest GitHub release and is checked by
   SHA-256. ArcLite (archives) and FarColorer (syntax highlighting) come with
   Far.
-- **Theme.** FarDark-2026, fixed to one commit and checked by hash. The
+- **Theme.** FarDark-2026 from
+  [Phoenix-/theming-far](https://github.com/Phoenix-/theming-far). The
   theme files store colors in the wrong byte order; the script swaps them, so
   folders are blue, not orange.
 - **Brighter colors.** Panel cursor `#4B5263`, editor line numbers `#275A65`,
@@ -339,6 +340,16 @@ With `-WithFar` the script installs Far Manager and sets it up:
 The script saves the old values and `-Uninstall` puts them back. A plugin
 folder or a desktop shortcut that the script did not create is left alone.
 `-Update` updates Far and its plugins; it skips Far while Far is running.
+
+When the theme author changes the theme, `-Update` installs the new version.
+The script compares the git hashes of the three theme files with the ones it
+installed; a change in the author's README does not count. It then applies
+its own changes on top again: the byte order, the brighter colors and the
+FarColorer style. Your own color changes in Far (F9 > Colors) and in
+`FarDark2026.hrd` stay until such an update. The update then overwrites them
+for the items that the theme sets. If the author renames `Panel.Cursor` or
+`def:HorzCross`, the script says that its own colors could not be applied. If
+GitHub does not answer, the installed theme stays.
 
 ## What else the script does
 

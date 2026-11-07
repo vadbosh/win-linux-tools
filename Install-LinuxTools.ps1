@@ -335,18 +335,43 @@ $FarPlugins = @(
     @{ Name = 'NetBox';      Repo = 'michaellukashov/Far-NetBox'; Asset = '^NetBox\.x64\.[\d.]+\.7z$' }
     @{ Name = 'IntChecker2'; Repo = 'lazyhamster/IntChecker';     Asset = '^IntChecker2_Far3_x64_[\d.]+\.7z$' }
 )
-# Тема FarDark-2026 (github.com/Phoenix-/theming-far, MIT): файлы закреплены
-# на коммите, проверка - git blob SHA-1 из GitHub API (проверено 2026-10-30)
+# Тема FarDark-2026 (github.com/Phoenix-/theming-far, MIT). Обновления автора
+# приходят сами (выбор пользователя 2026-11-07): -Update берёт из GitHub API
+# (contents папки темы, ветка main) git blob SHA-1 трёх файлов темы и ставит
+# тему и схему FarColorer заново, только если хэш хоть одного поменялся -
+# правка README автора тему не трогает. Скачанный файл сверяется с этим же
+# хэшем. Наши изменения (порядок цветов, $FarColorOverrides, $ColorerCrossBack)
+# накладываются на файлы автора при каждой установке. GitHub не ответил: тема
+# уже стоит - остаётся как есть; ещё не стоит - Fallback, коммит и хэши,
+# проверенные 2026-10-30 (данные темы те же и в 7abbd304 от 2026-11-07).
 $FarTheme = @{
-    Name  = 'FarDark-2026'
-    Base  = 'https://raw.githubusercontent.com/Phoenix-/theming-far/f0bb86da98905119a884ead8453542a97e932cae'
-    Files = [ordered]@{
-        'themes/FarDark-2026/FarDark2026.farconfig'  = 'e91b0bfcaecbc2c8e565ef9b9a1353b963739a72'
-        'themes/FarDark-2026/Highlighting.farconfig' = 'b5b4bd529f69ccd9a4a42a164b58cabccd1558c3'
-    }
+    Name     = 'FarDark-2026'
+    Repo     = 'Phoenix-/theming-far'
+    Branch   = 'main'
+    Dir      = 'themes/FarDark-2026'
+    Files    = @('FarDark2026.farconfig', 'Highlighting.farconfig')
     # Подсветка синтаксиса в редакторе (F4): схема для FarColorer
-    Colorer = @{ Path = 'themes/FarDark-2026/Colorer.hrd'; Sha = '385336d7b4ab845f16fe0cd4cbe2455238f0390d'; Scheme = 'FarDark2026' }
+    Colorer  = @{ File = 'Colorer.hrd'; Scheme = 'FarDark2026' }
+    Fallback = @{ Ref = 'f0bb86da98905119a884ead8453542a97e932cae'
+                  Sha = @{ 'FarDark2026.farconfig'  = 'e91b0bfcaecbc2c8e565ef9b9a1353b963739a72'
+                           'Highlighting.farconfig' = 'b5b4bd529f69ccd9a4a42a164b58cabccd1558c3'
+                           'Colorer.hrd'            = '385336d7b4ab845f16fe0cd4cbe2455238f0390d' } }
 }
+# Откуда брать файлы темы: Ref (ветка или коммит) и git blob SHA-1 каждого.
+# $null - GitHub не ответил
+function Get-FarThemeSource {
+    try {
+        $list = Invoke-RestMethod -Uri "https://api.github.com/repos/$($FarTheme.Repo)/contents/$($FarTheme.Dir)?ref=$($FarTheme.Branch)" -TimeoutSec 20 -Headers @{ 'User-Agent' = 'Install-LinuxTools' }
+        $sha = @{}
+        foreach ($f in @($FarTheme.Files) + $FarTheme.Colorer.File) {
+            $e = @($list) | Where-Object { $_.name -eq $f } | Select-Object -First 1
+            if (-not $e) { Warn "Far theme: $f is no longer in $($FarTheme.Repo)/$($FarTheme.Dir) - the theme is not updated"; return $null }
+            $sha[$f] = $e.sha
+        }
+        return @{ Ref = $FarTheme.Branch; Sha = $sha }
+    } catch { return $null }
+}
+function Get-FarThemeKey { param($Src) return (@(@($FarTheme.Files) + $FarTheme.Colorer.File | ForEach-Object { $Src.Sha[$_] }) -join ';') }
 # Подсветка текущей строки (крест FarColorer) - элемент def:HorzCross схемы.
 # В схеме темы #2A2A2A на фоне редактора #1F1F1F - на части мониторов не видно.
 # Цвет в .hrd - обычный #RRGGBB (порядок BGR тут не нужен).
@@ -370,6 +395,7 @@ $FarColorOverrides = [ordered]@{
 # Ревизия того, что скрипт делает с темой. Тема с ревизией меньше этой
 # импортируется заново один раз: 1 - цвета в порядке BGR, 2 - курсор ярче,
 # 3 - цвет номеров строк, 4 - верхняя строка редактора, 5 - курсор ещё ярче.
+# Тема автора обновилась - тоже заново, это $State.FarThemeKey (хэши файлов).
 $FarThemeRev = 5
 $FarMarker = '.install-linuxtools'   # файл в папке плагина: её положил этот скрипт, в нём версия
 
@@ -1005,6 +1031,9 @@ function Convert-ThemeColors {
     # Свои цвета ($FarColorOverrides) - в раздел цветов, там же, где Panel.Cursor
     $bgrOf = { param($rgb) if ($rgb -match '^#([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})$') { ('FF' + $Matches[3] + $Matches[2] + $Matches[1]).ToUpper() } }
     $anchor = $doc.SelectSingleNode("//object[@name='Panel.Cursor']")
+    # $true - в файле есть раздел цветов и свои цвета вписаны (Install-FarTheme
+    # предупреждает, если ни в одном файле темы его не нашлось)
+    $script:OverridesApplied = $script:OverridesApplied -or [bool]$anchor
     if ($anchor) {
         foreach ($name in $FarColorOverrides.Keys) {
             $o = $FarColorOverrides[$name]
@@ -1017,46 +1046,71 @@ function Convert-ThemeColors {
     }
     $doc.Save($File)
 }
-# Тема: один раз. Перед первым импортом - экспорт всех настроек Far в
-# резервную копию: -Uninstall вернёт из неё прежние цвета и настройки.
-# Тема, поставленная прежней версией скрипта (FarThemeRev меньше $FarThemeRev),
-# импортируется заново один раз; резервная копия не меняется.
+# Тема: один раз на версию. Перед первым импортом - экспорт всех настроек Far
+# в резервную копию: -Uninstall вернёт из неё прежние цвета и настройки.
+# Заново - когда у автора поменялись файлы темы ($State.FarThemeKey - их git
+# хэши) или ревизия скрипта ($FarThemeRev); резервная копия не меняется. Свои
+# правки цветов в Far между этими событиями -Update не трогает.
+# Возвращает @{ Src = откуда файлы (или $null); Fresh = тема поставлена сейчас }
+function Get-FarThemeUrl { param($Src, [string] $File) return "https://raw.githubusercontent.com/$($FarTheme.Repo)/$($Src.Ref)/$($FarTheme.Dir)/$File" }
 function Install-FarTheme {
     param($Far, $State)
-    if ($State.FarTheme -and [int]$State.FarThemeRev -ge $FarThemeRev) { Ok "Far theme $($FarTheme.Name) - already applied"; $script:FarDone += "theme $($FarTheme.Name)"; return }
+    $src = Get-FarThemeSource
+    if (-not $src) {
+        if ($State.FarTheme) { Ok "Far theme $($FarTheme.Name) - GitHub did not answer, the installed theme stays"; return @{ Src = $null; Fresh = $false } }
+        $src = $FarTheme.Fallback
+    }
+    $key = Get-FarThemeKey $src
+    # Тема от прежней версии скрипта, без записи о хэшах: та была закреплена на
+    # Fallback - считать, что стоит она
+    if ($State.FarTheme -and [int]$State.FarThemeRev -ge $FarThemeRev -and -not $State.FarThemeKey) {
+        Set-JsonProp $State 'FarThemeKey' (Get-FarThemeKey $FarTheme.Fallback); Save-State $State
+    }
+    if ($State.FarTheme -and [int]$State.FarThemeRev -ge $FarThemeRev -and $State.FarThemeKey -eq $key) {
+        Ok "Far theme $($FarTheme.Name) - already applied (the author's current version)"; $script:FarDone += "theme $($FarTheme.Name)"
+        return @{ Src = $src; Fresh = $false }
+    }
+    $authorNew = $State.FarTheme -and $State.FarThemeKey -and $State.FarThemeKey -ne $key
     $tmp = Join-Path $env:TEMP "ilt-theme-$([guid]::NewGuid().ToString('N'))"
     New-Item -ItemType Directory -Force -Path $tmp | Out-Null
     try {
         $files = @()
-        foreach ($f in $FarTheme.Files.Keys) {
-            $out = Join-Path $tmp (Split-Path -Leaf $f)
-            Invoke-WebRequest -UseBasicParsing -Uri "$($FarTheme.Base)/$f" -OutFile $out -TimeoutSec 60
-            if ((Get-GitBlobSha $out) -ne $FarTheme.Files[$f]) { Warn "Far theme: $(Split-Path -Leaf $f) does not match its git hash - theme not applied"; return }
+        $script:OverridesApplied = $false
+        foreach ($f in $FarTheme.Files) {
+            $out = Join-Path $tmp $f
+            Invoke-WebRequest -UseBasicParsing -Uri (Get-FarThemeUrl $src $f) -OutFile $out -TimeoutSec 60
+            if ((Get-GitBlobSha $out) -ne $src.Sha[$f]) { Warn "Far theme: $f does not match its git hash - theme not applied"; return $null }
             Convert-ThemeColors $out
             $files += $out
         }
+        if (-not $script:OverridesApplied) { Warn "Far theme: no Panel.Cursor in the author's files - own colors ($(@($FarColorOverrides.Keys) -join ', ')) not applied, the author's colors are used" }
         if (-not (Test-Path $Home2)) { New-Item -ItemType Directory -Force -Path $Home2 | Out-Null }
         $backup = Join-Path $Home2 'far-before.farconfig'
         if (-not $State.FarTheme) {
             if ((Invoke-Far $Far.Exe @('-export', "`"$backup`"")) -ne 0 -or -not (Test-Path -LiteralPath $backup)) {
-                Warn 'Far theme: could not back up the current Far settings - theme not applied'; return
+                Warn 'Far theme: could not back up the current Far settings - theme not applied'; return $null
             }
         }
         foreach ($f in $files) {
-            if ((Invoke-Far $Far.Exe @('-import', "`"$f`"")) -ne 0) { Warn "Far theme: Far did not import $(Split-Path -Leaf $f)"; return }
+            if ((Invoke-Far $Far.Exe @('-import', "`"$f`"")) -ne 0) { Warn "Far theme: Far did not import $(Split-Path -Leaf $f)"; return $null }
         }
         $fixOnly = [bool]$State.FarTheme
-        $State.FarTheme = $true; $State.FarThemeBgr = $true; $State.FarThemeRev = $FarThemeRev; Save-State $State
-        if ($fixOnly) { Ok "Far theme $($FarTheme.Name): re-imported (colors in Far's order, own colors: $(@($FarColorOverrides.Keys) -join ', '))" }
+        $State.FarTheme = $true; $State.FarThemeBgr = $true; $State.FarThemeRev = $FarThemeRev
+        Set-JsonProp $State 'FarThemeKey' $key; Save-State $State
+        if ($authorNew) { Ok "Far theme $($FarTheme.Name): the author's new version applied, own colors on top ($(@($FarColorOverrides.Keys) -join ', '))" }
+        elseif ($fixOnly) { Ok "Far theme $($FarTheme.Name): re-imported (colors in Far's order, own colors: $(@($FarColorOverrides.Keys) -join ', '))" }
         else { Ok "Far theme $($FarTheme.Name) applied (previous settings saved: $backup)" }
         $script:FarDone += "theme $($FarTheme.Name)"
-    } catch { Warn "Far theme: $($_.Exception.Message)" }
+        return @{ Src = $src; Fresh = $true }
+    } catch { Warn "Far theme: $($_.Exception.Message)"; return $null }
     finally { Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue }
 }
 # Схема FarColorer: .hrd в Plugins\FarColorer\base\hrd\rgb и запись в
 # catalog.xml перед </hrd-sets>, между своими метками. FarColorer лежит в
-# папке программы, а scoop update far её заменяет - поэтому ставится при
-# каждом запуске, повторно запись не дублируется.
+# папке программы, а scoop update far её заменяет - поэтому ставится заново,
+# когда файла или записи нет, и когда тема поставлена сейчас (новая версия
+# автора); иначе не трогается - свои правки в .hrd живут до этого. Повторно
+# запись не дублируется.
 function Get-ColorerPaths {
     param($Far)
     $base = Join-Path (Split-Path -Parent $Far.Exe) 'Plugins\FarColorer\base'
@@ -1070,18 +1124,30 @@ function Remove-ColorerBlock {
     return [regex]::Replace($Text, "(?s)\r?\n[ \t]*$([regex]::Escape($ColorerBegin)).*?$([regex]::Escape($ColorerEnd))", '')
 }
 function Install-FarColorerScheme {
-    param($Far, $State)
+    param($Far, $State, $Theme)
     $c = Get-ColorerPaths $Far
     if (-not (Test-Path -LiteralPath $c.Catalog)) { Warn "FarColorer not found ($($c.Catalog)) - editor syntax colors not installed"; return }
+    $fresh = $Theme -and $Theme.Fresh
+    $registered = (Test-Path -LiteralPath $c.Hrd) -and ([IO.File]::ReadAllText($c.Catalog)).Contains($ColorerBegin)
+    if (-not $fresh -and $registered -and $State.FarColorer) {
+        Ok "FarColorer scheme $($FarTheme.Colorer.Scheme) - installed, left as is"
+        # Включение - один раз; заново только вместе с новой темой
+        if (-not $State.FarColorerBefore) { Enable-FarColorerScheme $Far $State }
+        return
+    }
+    $src = if ($Theme -and $Theme.Src) { $Theme.Src } else { $FarTheme.Fallback }
+    $f = $FarTheme.Colorer.File
     $tmp = Join-Path $env:TEMP "ilt-hrd-$([guid]::NewGuid().ToString('N')).hrd"
     try {
-        Invoke-WebRequest -UseBasicParsing -Uri "$($FarTheme.Base)/$($FarTheme.Colorer.Path)" -OutFile $tmp -TimeoutSec 60
-        if ((Get-GitBlobSha $tmp) -ne $FarTheme.Colorer.Sha) { Warn 'FarColorer scheme: Colorer.hrd does not match its git hash - not installed'; return }
+        Invoke-WebRequest -UseBasicParsing -Uri (Get-FarThemeUrl $src $f) -OutFile $tmp -TimeoutSec 60
+        if ((Get-GitBlobSha $tmp) -ne $src.Sha[$f]) { Warn "FarColorer scheme: $f does not match its git hash - not installed"; return }
         $dir = Split-Path -Parent $c.Hrd
         if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
         # Подсветка строки ярче: back у def:HorzCross и def:VertCross
         $hrd = [IO.File]::ReadAllText($tmp)
-        $hrd = [regex]::Replace($hrd, '(<assign\s+name="def:(?:Horz|Vert)Cross"[^>]*?\bback=")#[0-9A-Fa-f]{6}', "`${1}$ColorerCrossBack")
+        $crossRx = '(<assign\s+name="def:(?:Horz|Vert)Cross"[^>]*?\bback=")#[0-9A-Fa-f]{6}'
+        if (-not [regex]::IsMatch($hrd, $crossRx)) { Warn "FarColorer scheme: no def:HorzCross/VertCross with back=#... in the author's $f - current line color $ColorerCrossBack not applied" }
+        $hrd = [regex]::Replace($hrd, $crossRx, "`${1}$ColorerCrossBack")
         [IO.File]::WriteAllText($c.Hrd, $hrd)
         $name = $FarTheme.Colorer.Scheme
         $text = Remove-ColorerBlock ([IO.File]::ReadAllText($c.Catalog))
@@ -1096,7 +1162,9 @@ function Install-FarColorerScheme {
         Ok "FarColorer scheme $name -> $($c.Hrd) (git hash checked), registered in catalog.xml"
         $script:FarDone += "editor colors $name"
         if (-not $State.FarColorer) { $State.FarColorer = $true; Save-State $State }
-        Enable-FarColorerScheme $Far $State
+        # Включение: новая тема или ещё не включали. После scoop update far
+        # (файла не было) - нет: оно в профиле Far и не потерялось
+        if ($fresh -or -not $State.FarColorerBefore) { Enable-FarColorerScheme $Far $State }
     } catch { Warn "FarColorer scheme: $($_.Exception.Message)" }
     finally { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue }
 }
@@ -1306,8 +1374,8 @@ function Install-FarExtras {
         return
     }
     foreach ($p in $FarPlugins) { Install-FarPlugin $p $far }
-    Install-FarTheme $far $State
-    Install-FarColorerScheme $far $State
+    $theme = Install-FarTheme $far $State
+    Install-FarColorerScheme $far $State $theme
     Enable-FarVt $far $State
     if (@($State.Packages) -contains 'far') { Install-FarLastDir $far $State; Install-FarDesktopLink $State }
 }
