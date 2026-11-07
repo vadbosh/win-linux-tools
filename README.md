@@ -441,8 +441,20 @@ Full `-Uninstall` keeps:
 ## Requirements
 
 Windows 10 or 11 and Windows PowerShell 5.1 (built in). Internet access to
-GitHub, Scoop and Microsoft. Installing Visual C++ and Npcap and adding the
-firewall rules for `mtr` ask for administrator rights.
+GitHub, Scoop and Microsoft. Installing Visual C++ and Npcap, the Nerd
+Fonts for all users and the firewall rules for `mtr` ask for administrator
+rights.
+
+At the start the script shows a window about these rights, unless the window
+it runs in already has them:
+
+- UAC is on: Windows will ask for the rights. A standard user needs an
+  administrator's password there.
+- UAC is off, and the user is not an administrator: Windows cannot give the
+  rights at all, so the script skips these steps and lists them at the end.
+
+OK continues, Cancel stops without changes. An administrator with UAC off
+sees no window.
 
 Tested on two machines. On Windows 11, under an account without
 administrator rights, these work:

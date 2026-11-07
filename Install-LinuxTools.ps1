@@ -503,10 +503,53 @@ function Update-SessionPath {
     $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
                 [Environment]::GetEnvironmentVariable('Path', 'User')
 }
+# UAC выключен (EnableLUA = 0): администратор всегда с правами, а обычный
+# пользователь получить их не может вообще - окна UAC нет, RunAs не поднимет
+# права. Тогда шаги с правами администратора пропускаются без попытки.
+function Test-UacOff {
+    $v = (Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name EnableLUA -ErrorAction SilentlyContinue).EnableLUA
+    return ($null -ne $v -and [int]$v -eq 0)
+}
+function Test-CanElevate { return ((Test-Admin) -or -not (Test-UacOff)) }
+$NoAdminText = "Administrator rights are not available: UAC is off and $env:USERNAME is not an administrator. The steps that need them are skipped (see TO DO BY HAND)"
+# При старте - окно с предупреждением, если права администратора придётся
+# просить или их не будет (выбор пользователя 2026-11-07). В окне с правами
+# (администратор при выключенном UAC, или окно "от администратора") - ничего.
+# OK - продолжить, Cancel - выйти. Текст - и в консоль, ради лога.
+function Show-RightsNotice {
+    if (Test-Admin) { return }
+    $steps = "  - Visual C++ runtime, if a tool needs it`n  - Npcap driver (-WithNmap)`n" +
+             "  - Nerd Fonts for all users and in the console font list`n  - firewall rules for mtr (trip)"
+    if (Test-UacOff) {
+        $icon = 'Warning'
+        $text = "User Account Control (UAC) is off, and $env:USERNAME is not an administrator.`n" +
+                "With UAC off, a standard user cannot get administrator rights, so these steps are skipped:`n$steps`n`n" +
+                "Everything else is installed for your user. For the skipped steps, run the script as an administrator or turn UAC on.`n`n" +
+                "OK - continue without them.   Cancel - stop."
+    } else {
+        $icon = 'Information'
+        $text = "Windows will ask for administrator rights (UAC) for:`n$steps`n`n" +
+                "A standard user needs an administrator's password there. If you refuse, the script skips that step and lists it at the end.`n`n" +
+                "OK - continue.   Cancel - stop."
+    }
+    Write-Host "`n$text" -ForegroundColor Yellow
+    if (-not [Environment]::UserInteractive) { return }
+    $r = $null
+    try {
+        Add-Type -AssemblyName System.Windows.Forms
+        $r = [System.Windows.Forms.MessageBox]::Show($text, 'Install-LinuxTools', 'OKCancel', $icon)
+    } catch { return }
+    if ("$r" -eq 'Cancel') { Write-Host "`nStopped: Cancel in the warning window. Nothing was changed." -ForegroundColor Yellow; Finish 0 }
+}
 # Запуск установщика: из окна администратора - сразу, иначе через UAC.
-# Отказ в окне UAC - исключение; тогда $null
+# Отказ в окне UAC - исключение; тогда $null. UAC выключен у обычного
+# пользователя - не запускать, одно предупреждение на весь запуск
 function Start-Elevated {
     param([string] $File, [string[]] $Arguments = @())
+    if (-not (Test-CanElevate)) {
+        if (-not $script:NoAdminWarned) { Warn $NoAdminText; $script:NoAdminWarned = $true }
+        return $null
+    }
     $a = @{ FilePath = $File; Wait = $true; PassThru = $true }
     if ($Arguments.Count) { $a.ArgumentList = $Arguments }
     if (-not (Test-Admin)) { $a.Verb = 'RunAs' }
@@ -715,7 +758,25 @@ $TripRules = [ordered]@{
     'InstallLinuxTools-trip-ICMPv6' = @{ Protocol = 'ICMPv6'; IcmpType = @('129') }
 }
 function Get-EncodedCommand { param([string] $Command) return [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Command)) }
-function Test-FirewallRule { param([string] $Name) return [bool](Get-NetFirewallRule -Name $Name -ErrorAction SilentlyContinue) }
+# Модуль Windows NetSecurity (Get-NetFirewallRule и др.) у части
+# пользователей не загружается: "found in the module 'NetSecurity', but the
+# module could not be loaded" (Win11, обычный пользователь, 2026-11-07). Это
+# ошибка загрузки модуля - -ErrorAction её не глушит, и на каждое правило
+# выходила простыня. Проверка один раз; не загрузился - одно предупреждение,
+# правила - шагом руками.
+$script:NetSecurityOk = $null
+function Test-NetSecurity {
+    if ($null -eq $script:NetSecurityOk) {
+        try { Import-Module NetSecurity -ErrorAction Stop; $script:NetSecurityOk = $true }
+        catch { $script:NetSecurityOk = $false; Warn "Windows module NetSecurity does not load ($($_.Exception.Message)) - firewall rules for mtr (trip) are not checked or changed" }
+    }
+    return $script:NetSecurityOk
+}
+function Test-FirewallRule {
+    param([string] $Name)
+    if (-not (Test-NetSecurity)) { return $false }
+    try { return [bool](Get-NetFirewallRule -Name $Name -ErrorAction SilentlyContinue) } catch { return $false }
+}
 function Get-TripRuleCommand {
     param([string[]] $Names)
     return (@(foreach ($n in $Names) {
@@ -728,6 +789,11 @@ function Get-TripRuleCommand {
 function Install-TripFirewall {
     param($State)
     if ((Get-ScoopInstalled) -notcontains 'trippy') { return }
+    if (-not (Test-NetSecurity)) {
+        Add-Step 30 'Allow ICMP replies in Windows Defender Firewall. Without it, mtr (trip) shows no hops.' @(
+            "In an administrator PowerShell:  $(Get-TripRuleCommand @($TripRules.Keys))")
+        return
+    }
     $ours = @($State.FirewallRules)
     $foreign = @($TripRules.Keys | Where-Object { $ours -notcontains $_ -and (Test-FirewallRule $_) })
     foreach ($n in $foreign) { Ok "firewall rule $n already exists, left alone" }
@@ -755,6 +821,10 @@ function Remove-TripFirewall {
     param($State)
     $names = @($State.FirewallRules)
     if (-not $names.Count) { return @() }
+    if (-not (Test-NetSecurity)) {
+        Add-Step 30 'Remove the firewall rules for trip (mtr):' @("In an administrator PowerShell:  Remove-NetFirewallRule -Name $(@($names | ForEach-Object { "'$_'" }) -join ',')")
+        return @()
+    }
     $cmd = "Remove-NetFirewallRule -Name $(@($names | ForEach-Object { "'$_'" }) -join ',') -ErrorAction SilentlyContinue"
     if (Test-Admin) { Invoke-Expression $cmd }
     else { $null = Start-Elevated 'powershell.exe' @('-NoProfile', '-EncodedCommand', (Get-EncodedCommand $cmd)) }
@@ -2722,6 +2792,7 @@ function Install-AllPackages {
 }
 
 Start-Log
+Show-RightsNotice
 
 # =============================================================================
 #  -Uninstall
