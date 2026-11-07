@@ -445,8 +445,8 @@ GitHub, Scoop and Microsoft. Installing Visual C++ and Npcap, the Nerd
 Fonts for all users and the firewall rules for `mtr` ask for administrator
 rights.
 
-At the start the script shows a window about these rights, unless the window
-it runs in already has them:
+At the start of an install or `-Update` the script shows a window about these
+rights, unless the window it runs in already has them:
 
 - UAC is on: Windows will ask for the rights. A standard user needs an
   administrator's password there.
