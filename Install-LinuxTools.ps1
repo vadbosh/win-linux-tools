@@ -2801,7 +2801,6 @@ if ($Uninstall) {
     $removed += @(Remove-FarDesktopLink $st)
     $removed += @(Remove-LsColors $st)
     $removed += @(Remove-TripFirewall $st)
-    $removed += @(Remove-ShellModules $st)
     $removed += @(Remove-OhMyPosh $st)
     # Настройки Terminal - до шрифта: они на него ссылаются
     $removed += @(Remove-TerminalSettings $st)
@@ -2834,6 +2833,12 @@ if ($Uninstall) {
             Warn "Scoop kept: it has other packages now: $($left -join ', ')"; $kept += 'Scoop (it has other packages)'
         } else { $kept += 'Scoop (it was there before this script)' }
     }
+    # Модули PowerShell - после всех команд Scoop. Загруженный в это окно
+    # PSReadLine 2.4.5 целиком не удалить (DLL занята), а его
+    # PSReadLine.format.ps1xml удаляется - и каждая команда Scoop, которая
+    # вызывает Update-FormatData (scoop list, scoop shim, ...), писала
+    # "Could not find file ...PSReadLine.format.ps1xml" (Win11, 2026-11-07)
+    $removed += @(Remove-ShellModules $st)
     # Системные компоненты (Visual C++, Npcap) остаются: откат убирает только
     # утилиты и связи с ними, а библиотеками и драйвером пользуются и другие программы
     foreach ($s in @($st.SystemInstalled)) { $kept += "$s (system component; remove it in Windows Settings > Apps if needed)" }
