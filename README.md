@@ -448,16 +448,13 @@ GitHub, Scoop and Microsoft. Installing Visual C++ and Npcap, the Nerd
 Fonts for all users and the firewall rules for `mtr` ask for administrator
 rights.
 
-At the start of an install or `-Update` the script shows a window about these
-rights, unless the window it runs in already has them:
+With UAC on, Windows asks for the rights at the step that needs them. A
+standard user needs an administrator's password there.
 
-- UAC is on: Windows will ask for the rights. A standard user needs an
-  administrator's password there.
-- UAC is off, and the user is not an administrator: Windows cannot give the
-  rights at all, so the script skips these steps and lists them at the end.
-
-OK continues, Cancel stops without changes. An administrator with UAC off
-sees no window.
+With UAC off, Windows cannot give the rights to a standard user at all. Then
+at the start of an install or `-Update` the script shows a short Info window:
+some programs and firewall rules may not be installed. The script skips these
+steps and lists them at the end. An administrator sees no window.
 
 Tested on two machines. On Windows 11, under an account without
 administrator rights, these work:

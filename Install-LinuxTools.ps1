@@ -512,61 +512,43 @@ function Test-UacOff {
 }
 function Test-CanElevate { return ((Test-Admin) -or -not (Test-UacOff)) }
 $NoAdminText = "Administrator rights are not available: UAC is off and $env:USERNAME is not an administrator. The steps that need them are skipped (see TO DO BY HAND)"
-# При старте - окно с предупреждением, если права администратора придётся
-# просить или их не будет (выбор пользователя 2026-11-07). В окне с правами
-# (администратор при выключенном UAC, или окно "от администратора") - ничего.
-# OK - продолжить, Cancel - выйти. Текст - и в консоль, ради лога.
-# -Uninstall - без окна (просьба пользователя 2026-11-07). Окно - своё, не
-# MessageBox: у того шрифт системный, мелкий, и не меняется; здесь Segoe UI 12.
+# При старте - короткое окно Info, только если прав администратора не будет
+# вовсе: пользователь не администратор и UAC выключен. При включённом UAC
+# окна нет - Windows сама спросит права у шага, которому они нужны (выбор
+# пользователя 2026-11-07: длинный текст никто не читает, а Cancel жмут,
+# приняв окно за ошибку). Кнопка одна - OK. Текст - и в консоль, ради лога.
+# -Uninstall - без окна. Окно - своё, не MessageBox: у того шрифт системный,
+# мелкий, и не меняется; здесь Segoe UI 12.
 function Show-RightsDialog {
-    param([string] $Text, [string] $Icon)
+    param([string] $Text)
     Add-Type -AssemblyName System.Windows.Forms, System.Drawing
     $f = New-Object System.Windows.Forms.Form
-    $f.Text = 'Install-LinuxTools'; $f.StartPosition = 'CenterScreen'; $f.TopMost = $true
+    $f.Text = 'Install-LinuxTools - Info'; $f.StartPosition = 'CenterScreen'; $f.TopMost = $true
     $f.FormBorderStyle = 'FixedDialog'; $f.MaximizeBox = $false; $f.MinimizeBox = $false
     $f.AutoSize = $true; $f.AutoSizeMode = 'GrowAndShrink'; $f.Padding = New-Object System.Windows.Forms.Padding(16)
     $f.Font = New-Object System.Drawing.Font('Segoe UI', 12)
-    $sys = if ($Icon -eq 'Warning') { [System.Drawing.SystemIcons]::Warning } else { [System.Drawing.SystemIcons]::Information }
     $pic = New-Object System.Windows.Forms.PictureBox
-    $pic.Image = $sys.ToBitmap(); $pic.SizeMode = 'AutoSize'; $pic.Location = New-Object System.Drawing.Point(16, 16)
+    $pic.Image = [System.Drawing.SystemIcons]::Information.ToBitmap(); $pic.SizeMode = 'AutoSize'; $pic.Location = New-Object System.Drawing.Point(16, 16)
     $lbl = New-Object System.Windows.Forms.Label
     $lbl.Text = $Text; $lbl.AutoSize = $true; $lbl.MaximumSize = New-Object System.Drawing.Size(760, 0)
     $lbl.Location = New-Object System.Drawing.Point(64, 16)
     $ok = New-Object System.Windows.Forms.Button
     $ok.Text = 'OK'; $ok.DialogResult = 'OK'; $ok.AutoSize = $true; $ok.MinimumSize = New-Object System.Drawing.Size(110, 36)
-    $cancel = New-Object System.Windows.Forms.Button
-    $cancel.Text = 'Cancel'; $cancel.DialogResult = 'Cancel'; $cancel.AutoSize = $true; $cancel.MinimumSize = New-Object System.Drawing.Size(110, 36)
-    $f.Controls.AddRange(@($pic, $lbl, $ok, $cancel))
-    $f.AcceptButton = $ok; $f.CancelButton = $cancel
-    # Кнопки - под текстом, справа: после того как текст получил свой размер
+    $f.Controls.AddRange(@($pic, $lbl, $ok))
+    $f.AcceptButton = $ok; $f.CancelButton = $ok
+    # Кнопка - под текстом, справа: после того как текст получил свой размер
     $f.Add_Load({
         $y = [Math]::Max($lbl.Bottom, $pic.Bottom) + 20
-        $cancel.Location = New-Object System.Drawing.Point(($lbl.Right - $cancel.Width), $y)
-        $ok.Location = New-Object System.Drawing.Point(($cancel.Left - $ok.Width - 12), $y)
+        $ok.Location = New-Object System.Drawing.Point(([Math]::Max($lbl.Right, 200) - $ok.Width), $y)
     })
-    try { return "$($f.ShowDialog())" } finally { $f.Dispose() }
+    try { $null = $f.ShowDialog() } finally { $f.Dispose() }
 }
 function Show-RightsNotice {
-    if ($Uninstall -or (Test-Admin)) { return }
-    $steps = "  - Visual C++ runtime, if a tool needs it`n  - Npcap driver (-WithNmap)`n" +
-             "  - Nerd Fonts for all users and in the console font list`n  - firewall rules for mtr (trip)"
-    if (Test-UacOff) {
-        $icon = 'Warning'
-        $text = "User Account Control (UAC) is off, and $env:USERNAME is not an administrator.`n" +
-                "With UAC off, a standard user cannot get administrator rights, so these steps are skipped:`n$steps`n`n" +
-                "Everything else is installed for your user. For the skipped steps, run the script as an administrator or turn UAC on.`n`n" +
-                "OK - continue without them.   Cancel - stop."
-    } else {
-        $icon = 'Information'
-        $text = "Windows will ask for administrator rights (UAC) for:`n$steps`n`n" +
-                "A standard user needs an administrator's password there. If you refuse, the script skips that step and lists it at the end.`n`n" +
-                "OK - continue.   Cancel - stop."
-    }
-    Write-Host "`n$text" -ForegroundColor Yellow
+    if ($Uninstall -or (Test-Admin) -or -not (Test-UacOff)) { return }
+    $text = "User $env:USERNAME - no administrator rights`nUAC is OFF`n`nSome programs and firewall rules may not be installed."
+    Write-Host "`nInfo:`n$text" -ForegroundColor Yellow
     if (-not [Environment]::UserInteractive) { return }
-    $r = $null
-    try { $r = Show-RightsDialog $text $icon } catch { return }
-    if ("$r" -eq 'Cancel') { Write-Host "`nStopped: Cancel in the warning window. Nothing was changed." -ForegroundColor Yellow; Finish 0 }
+    try { Show-RightsDialog $text } catch { }
 }
 # Запуск установщика: из окна администратора - сразу, иначе через UAC.
 # Отказ в окне UAC - исключение; тогда $null. UAC выключен у обычного
