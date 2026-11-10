@@ -2111,9 +2111,14 @@ function Add-ProfileBlock {
     # Tab как в bash (просьба пользователя 2026-11-10): Complete дописывает
     # общее начало вариантов, второй Tab показывает их все списком под
     # строкой. Shift+Tab - прежний перебор по одному (TabCompletePrevious).
+    # В этом списке папки - с \ в конце, как в clink (просьба пользователя
+    # 2026-11-10): обёртка над TabExpansion2 (через неё варианты берёт
+    # PSReadLine) меняет только ListItemText у ProviderContainer, вставляется
+    # прежний CompletionText. Прежняя TabExpansion2 сохраняется один раз -
+    # повторная загрузка профиля не зацикливает.
     $lines += "`$global:WltTimesName = '$TimesName'"
     $lines += @'
-# wlt-profile-rev 4
+# wlt-profile-rev 5
 if ((Get-Module PSReadLine).Version -ge [version]'2.1') {
     try {
         Set-PSReadLineKeyHandler -Key Tab -Function Complete
@@ -2132,6 +2137,29 @@ if ((Get-Module PSReadLine).Version -ge [version]'2.1') {
             return $r
         }
     } catch { }
+}
+if (-not $global:WltTabExpansion2) { $global:WltTabExpansion2 = (Get-Command TabExpansion2 -CommandType Function).ScriptBlock }
+function global:TabExpansion2 {
+    [CmdletBinding(DefaultParameterSetName = 'ScriptInputSet')]
+    param(
+        [Parameter(ParameterSetName = 'ScriptInputSet', Mandatory = $true, Position = 0)] [string] $inputScript,
+        [Parameter(ParameterSetName = 'ScriptInputSet', Position = 1)] [int] $cursorColumn = $inputScript.Length,
+        [Parameter(ParameterSetName = 'AstInputSet', Mandatory = $true, Position = 0)] [System.Management.Automation.Language.Ast] $ast,
+        [Parameter(ParameterSetName = 'AstInputSet', Mandatory = $true, Position = 1)] [System.Management.Automation.Language.Token[]] $tokens,
+        [Parameter(ParameterSetName = 'AstInputSet', Mandatory = $true, Position = 2)] [System.Management.Automation.Language.IScriptPosition] $positionOfCursor,
+        [Parameter(ParameterSetName = 'ScriptInputSet', Position = 2)] [Parameter(ParameterSetName = 'AstInputSet', Position = 3)] [Hashtable] $options = $null
+    )
+    $r = & $global:WltTabExpansion2 @PSBoundParameters
+    if ($r -and $r.CompletionMatches) {
+        $m = $r.CompletionMatches
+        for ($i = 0; $i -lt $m.Count; $i++) {
+            $c = $m[$i]
+            if ("$($c.ResultType)" -eq 'ProviderContainer' -and $c.ListItemText -notmatch '[\\/]$') {
+                $m[$i] = [System.Management.Automation.CompletionResult]::new($c.CompletionText, $c.ListItemText + '\', $c.ResultType, $c.ToolTip)
+            }
+        }
+    }
+    return $r
 }
 if (Test-Path Alias:history) { Remove-Item Alias:history -Force }
 function global:history {
@@ -3033,8 +3061,8 @@ if ($Update) {
         # Блок профиля из прошлых версий скрипта - переписать. Метка ревизии
         # стоит в самом блоке (Add-ProfileBlock); новая правка блока - новый
         # номер здесь и там. rev 2: история как в bash; rev 3: время команд;
-        # rev 4: Tab как в bash
-        if (-not (Select-String -LiteralPath $Profiles[0] -SimpleMatch '# wlt-profile-rev 4' -Quiet -ErrorAction SilentlyContinue)) { Add-ProfileBlock }
+        # rev 4: Tab как в bash; rev 5: \ у папок в списке Tab
+        if (-not (Select-String -LiteralPath $Profiles[0] -SimpleMatch '# wlt-profile-rev 5' -Quiet -ErrorAction SilentlyContinue)) { Add-ProfileBlock }
         Install-ShellModules $st
     }
     Say 'Check'

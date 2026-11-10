@@ -88,7 +88,7 @@ Right arrow accepts it. Windows PowerShell 5.1 comes with PSReadLine 2.0,
 which cannot do this, so the script installs the current PSReadLine from
 PSGallery for your user. A PSReadLine 2.1+ that you installed stays as it is.
 Tab works as in bash: it adds the part that all matching names share, and a
-second Tab lists every match.
+second Tab lists every match. Folder names in that list end in `\`.
 Also with `-LinuxFirst`, [posh-git](https://github.com/dahlbyk/posh-git) shows
 the git branch and changes in the prompt. It also completes git commands with
 Tab. [fzf](https://github.com/junegunn/fzf) with
