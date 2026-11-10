@@ -2750,6 +2750,11 @@ function Install-Clink {
         & $bat set history.dupe_mode erase_prev 2>&1 | Out-Null
         & $bat set history.time_stamp show 2>&1 | Out-Null
         & $bat set history.dont_add_to_history_cmds 'ls ll la pwd exit history clear' 2>&1 | Out-Null
+        # Tab показывает все файлы и папки, как PowerShell: скрытые clink и так
+        # показывает (files.hidden), а скрытые системные (Cookies, NetHood,
+        # Application Data...) - только с files.system (просьба пользователя
+        # 2026-11-10)
+        & $bat set files.system true 2>&1 | Out-Null
     } finally { $ErrorActionPreference = $eap }
     if ((Get-CmdAutoRun) -notmatch 'clink') {
         Warn 'clink is installed but not started with cmd'

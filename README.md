@@ -140,7 +140,8 @@ Keys in clink:
 - Right arrow accepts the grey hint; F2 lists all hints.
 - Up and Down search history by the typed start.
 - Tab works as in bash: it adds the part that all matching names share, and
-  a second Tab lists every match under the line. Shift+Tab puts the matches
+  a second Tab lists every match under the line, hidden and system files
+  included, as in PowerShell. Shift+Tab puts the matches
   into the line one by one, from the last.
 
 The script adds Up, Down, Tab and Shift+Tab to `.inputrc`. A clink that you
