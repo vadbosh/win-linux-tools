@@ -191,6 +191,8 @@ Options:
   History as in bash: 999999 commands, no line that starts with a space, no
   ls ll la pwd exit history clear; "history" lists all saved commands, with
   the time for commands typed after the script set this up.
+  Tab as in bash: the common start of the matches, a second Tab lists them
+  all, folders with \ at the end.
   Only what you type changes: scripts (.ps1) and Windows modules keep the
   usual commands, also when you start them from that window.
   -Uninstall removes both.
