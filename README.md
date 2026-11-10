@@ -87,6 +87,8 @@ PowerShell also shows the rest of a matching command from history in grey;
 Right arrow accepts it. Windows PowerShell 5.1 comes with PSReadLine 2.0,
 which cannot do this, so the script installs the current PSReadLine from
 PSGallery for your user. A PSReadLine 2.1+ that you installed stays as it is.
+Tab works as in bash: it adds the part that all matching names share, and a
+second Tab lists every match.
 Also with `-LinuxFirst`, [posh-git](https://github.com/dahlbyk/posh-git) shows
 the git branch and changes in the prompt. It also completes git commands with
 Tab. [fzf](https://github.com/junegunn/fzf) with
@@ -137,8 +139,9 @@ Keys in clink:
 
 - Right arrow accepts the grey hint; F2 lists all hints.
 - Up and Down search history by the typed start.
-- Tab puts the next matching command or file name into the line, Shift+Tab
-  the previous one, as in PowerShell.
+- Tab works as in bash: it adds the part that all matching names share, and
+  a second Tab lists every match under the line. Shift+Tab puts the matches
+  into the line one by one, from the last.
 
 The script adds Up, Down, Tab and Shift+Tab to `.inputrc`. A clink that you
 already start with cmd stays as it is.

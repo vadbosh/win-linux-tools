@@ -153,7 +153,8 @@ Options:
   -WithNmap      Also install nmap and ncat (nc) with the Npcap driver.
   -WithClink     Also install clink: bash-like editing in cmd, grey hints
                  from history (Right arrow accepts), Up/Down search history
-                 by the typed start, Tab cycles matches, macros after | and &.
+                 by the typed start, Tab as in bash (twice - all matches),
+                 macros after | and &.
                  History as in bash, with the time of each command.
   -WithOhMyPosh  Also install oh-my-posh: a PowerShell prompt with the folder,
                  git branch and changes, and the time of a slow command. Plain
@@ -2107,11 +2108,15 @@ function Add-ProfileBlock {
     # временем, как в bash; "history 20" - последние 20. Время сопоставляется
     # с конца по тексту команды; у команд до журнала - пусто. Из скриптов -
     # прежний Get-History.
+    # Tab как в bash (просьба пользователя 2026-11-10): Complete дописывает
+    # общее начало вариантов, второй Tab показывает их все списком под
+    # строкой. Shift+Tab - прежний перебор по одному (TabCompletePrevious).
     $lines += "`$global:WltTimesName = '$TimesName'"
     $lines += @'
-# wlt-profile-rev 3
+# wlt-profile-rev 4
 if ((Get-Module PSReadLine).Version -ge [version]'2.1') {
     try {
+        Set-PSReadLineKeyHandler -Key Tab -Function Complete
         Set-PSReadLineOption -MaximumHistoryCount 999999 -HistoryNoDuplicates
         $global:WltTimes = Join-Path (Split-Path -Parent (Get-PSReadLineOption).HistorySavePath) $global:WltTimesName
         Set-PSReadLineOption -AddToHistoryHandler {
@@ -2730,9 +2735,10 @@ function Install-Clink {
     Ok 'clink: starts with every cmd window, grey hints from history (Right arrow accepts)'
 }
 # Стрелки вверх/вниз в clink - история по набранному началу (как PgUp/PgDn;
-# пустая строка - вся история). Tab / Shift+Tab - следующее / предыдущее
-# совпадение прямо в строке, как в PowerShell и обычном cmd (без clink Tab
-# показывал бы список под строкой, как bash). Блок с метками - в первом найденном
+# пустая строка - вся история). Tab - как в bash (просьба пользователя
+# 2026-11-10; раньше - перебор в строке): complete дописывает общее начало,
+# второй Tab показывает все варианты списком. Shift+Tab - перебор по одному
+# с конца, как в PowerShell. Блок с метками - в первом найденном
 # .inputrc/_inputrc из порядка поиска clink (%CLINK_INPUTRC%, %USERPROFILE%,
 # %LOCALAPPDATA%, %APPDATA%), нет такого - в %USERPROFILE%\.inputrc.
 # Метка не меняется: по ней находится блок, записанный прошлыми версиями
@@ -2756,11 +2762,11 @@ function Set-ClinkInputrc {
     $file = if ($State.ClinkInputrc) { $State.ClinkInputrc } else { Get-InputrcFile }
     Remove-InputrcBlock $file
     $block = @($InputrcBegin, '$if clink', '"\e[A": history-search-backward', '"\e[B": history-search-forward',
-               '"\t": old-menu-complete', '"\e[Z": old-menu-complete-backward', '$endif', $InputrcEnd) -join "`n"
+               '"\t": complete', '"\e[Z": old-menu-complete-backward', '$endif', $InputrcEnd) -join "`n"
     $text = if (Test-Path -LiteralPath $file) { [IO.File]::ReadAllText($file).TrimEnd() + "`n`n" } else { '' }
     [IO.File]::WriteAllText($file, $text + $block + "`n")     # без BOM
     if ($State.ClinkInputrc -ne $file) { $State | Add-Member -NotePropertyName ClinkInputrc -NotePropertyValue $file -Force; Save-State $State }
-    Ok "clink: Up/Down search history by the typed start, Tab cycles matches ($file)"
+    Ok "clink: Up/Down search history by the typed start, Tab completes as in bash ($file)"
 }
 function Remove-Clink {
     param($State)
@@ -3026,8 +3032,9 @@ if ($Update) {
     if ($st.ProfileBlock) {
         # Блок профиля из прошлых версий скрипта - переписать. Метка ревизии
         # стоит в самом блоке (Add-ProfileBlock); новая правка блока - новый
-        # номер здесь и там. rev 2: история как в bash; rev 3: время команд
-        if (-not (Select-String -LiteralPath $Profiles[0] -SimpleMatch '# wlt-profile-rev 3' -Quiet -ErrorAction SilentlyContinue)) { Add-ProfileBlock }
+        # номер здесь и там. rev 2: история как в bash; rev 3: время команд;
+        # rev 4: Tab как в bash
+        if (-not (Select-String -LiteralPath $Profiles[0] -SimpleMatch '# wlt-profile-rev 4' -Quiet -ErrorAction SilentlyContinue)) { Add-ProfileBlock }
         Install-ShellModules $st
     }
     Say 'Check'
