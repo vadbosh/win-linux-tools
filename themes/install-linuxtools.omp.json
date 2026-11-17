@@ -6,7 +6,7 @@
       "type": "prompt", "alignment": "left",
       "segments": [
         { "type": "text", "style": "plain", "foreground": "#3DDC84", "template": "┌──" },
-        { "type": "session", "style": "plain", "foreground": "#3DDC84", "template": "{{ .UserName }}<#42A5F5>@</>{{ .HostName }} " },
+        { "type": "session", "style": "plain", "foreground": "#4CAF50", "template": "{{ .UserName }}<#42A5F5>@</>{{ .HostName }} " },
         { "type": "shell", "style": "plain", "foreground": "#FF9100", "template": "<b>~{{ .Name }}</b> ", "options": { "mapped_shell_names": { "powershell": "pwsh" } } },
         { "type": "path", "style": "plain", "foreground": "#3DDC84", "template": "[{{ .Path }}] ", "options": { "style": "full" } },
         { "type": "git", "style": "plain", "foreground": "#B39DDB",
