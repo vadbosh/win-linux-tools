@@ -5,7 +5,7 @@
     {
       "type": "prompt", "alignment": "left",
       "segments": [
-        { "type": "text", "style": "plain", "foreground": "#3DDC84", "template": "┌──" },
+        { "type": "text", "style": "plain", "foreground": "#4CAF50", "template": "┌──" },
         { "type": "session", "style": "plain", "foreground": "#4CAF50", "template": "{{ .UserName }}<#42A5F5>@</>{{ .HostName }} " },
         { "type": "shell", "style": "plain", "foreground": "#FF9100", "template": "<b>~{{ .Name }}</b> ", "options": { "mapped_shell_names": { "powershell": "pwsh" } } },
         { "type": "path", "style": "plain", "foreground": "#3DDC84", "template": "[{{ .Path }}] ", "options": { "style": "full" } },
@@ -19,10 +19,10 @@
     {
       "type": "prompt", "alignment": "left", "newline": true,
       "segments": [
-        { "type": "text", "style": "plain", "foreground": "#3DDC84", "template": "└─" },
-        { "type": "status", "style": "plain", "foreground": "#69F0AE", "foreground_templates": [ "{{ if gt .Code 0 }}#FF5252{{ end }}" ], "template": "> ", "options": { "always_enabled": true } }
+        { "type": "text", "style": "plain", "foreground": "#4CAF50", "template": "└─" },
+        { "type": "status", "style": "plain", "foreground": "#4CAF50", "template": "{{ if gt .Code 0 }}<#FFEA00>!</>{{ end }}> ", "options": { "always_enabled": true } }
       ]
     }
   ],
-  "transient_prompt": { "foreground": "#69F0AE", "foreground_templates": [ "{{ if gt .Code 0 }}#FF5252{{ end }}" ], "template": "> " }
+  "transient_prompt": { "foreground": "#4CAF50", "template": "{{ if gt .Code 0 }}<#FFEA00>!</>{{ end }}> " }
 }
