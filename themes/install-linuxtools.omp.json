@@ -7,6 +7,7 @@
       "segments": [
         { "type": "text", "style": "plain", "foreground": "#3DDC84", "template": "┌──" },
         { "type": "session", "style": "plain", "foreground": "#42A5F5", "template": "{{ .UserName }}@{{ .HostName }} " },
+        { "type": "shell", "style": "plain", "foreground": "#42A5F5", "template": "~{{ .Name }} ", "options": { "mapped_shell_names": { "powershell": "pwsh" } } },
         { "type": "path", "style": "plain", "foreground": "#3DDC84", "template": "[{{ .Path }}] ", "options": { "style": "full" } },
         { "type": "git", "style": "plain", "foreground": "#B39DDB",
           "template": "| {{ .HEAD }}{{ if .BranchStatus }} {{ .BranchStatus }}{{ end }}{{ if .Working.Changed }}<#FF80AB> *{{ .Working.String }}</>{{ end }}{{ if .Staging.Changed }}<#69F0AE> +{{ .Staging.String }}</>{{ end }} ",
