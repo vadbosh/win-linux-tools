@@ -1,6 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json",
   "version": 4,
+  "cursor_style": "steady_block",
   "blocks": [
     {
       "type": "prompt", "alignment": "left",
