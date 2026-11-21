@@ -337,7 +337,9 @@ With `-WithFar` the script installs Far Manager and sets it up:
   FarColorer TrueMod style. In the editor (F4): line numbers, scroll bar, auto
   indent, Tab as spaces, cursor stops at the end of a line. The drive menu
   (Alt+F1, Alt+F2) shows the volume label next to the letter; Ctrl+3 there
-  switches it to the Explorer name or hides it.
+  switches it to the Explorer name or hides it. The command line prompt
+  starts with the label of the current disk in bright yellow:
+  `[MYDISK] C:\Users\Bosh>`. A prompt format you set yourself stays as it is.
 - **Folder hand-over.** `far` opens in the current folder; after you quit,
   PowerShell or cmd stays in the folder Far was in, like `mc` in Linux.
 - **Backspace goes one folder up** in a panel when the command line is

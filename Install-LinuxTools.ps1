@@ -1293,7 +1293,7 @@ function Get-FarSetting {
     finally { Remove-Item -LiteralPath $exp -Force -ErrorAction SilentlyContinue }
 }
 function Set-FarSetting {
-    param($Far, $Current, [string] $Key, [string] $Name, [string] $Value)
+    param($Far, $Current, [string] $Key, [string] $Name, [string] $Value, [string] $Type = 'qword')
     $doc = $Current.Doc
     $root = $doc.DocumentElement
     $sec = if ($Current.Node) { $Current.Node.ParentNode } else { $root.SelectSingleNode('generalconfig') }
@@ -1301,7 +1301,7 @@ function Set-FarSetting {
     foreach ($c in @($root.ChildNodes)) { if ($c -ne $sec) { [void]$root.RemoveChild($c) } }
     foreach ($c in @($sec.ChildNodes)) { [void]$sec.RemoveChild($c) }
     $n = $doc.CreateElement('setting')
-    foreach ($a in @(@('key', $Key), @('name', $Name), @('type', 'qword'), @('value', $Value))) { $n.SetAttribute($a[0], $a[1]) }
+    foreach ($a in @(@('key', $Key), @('name', $Name), @('type', $Type), @('value', $Value))) { $n.SetAttribute($a[0], $a[1]) }
     [void]$sec.AppendChild($n)
     $file = Join-Path $env:TEMP "ilt-far-set-$([guid]::NewGuid().ToString('N')).farconfig"
     try {
@@ -1339,21 +1339,38 @@ $FarSettings = [ordered]@{
     # даёт Ctrl+3 (ещё раз - имя из Проводника, третий раз - скрыть).
     DriveLabel  = @{ Key = 'System'; Name = 'DriveMenuMode'; Default = '00000000000001c1'; Bit = 4
                   Manual = 'Drive menu volume labels in Far: Alt+F1, then Ctrl+3 (or F9 there > [x] Show label), then Shift+F9' }
+    # Метка тома в приглашении командной строки: "[MYDISK] C:\path>" (просьба
+    # пользователя 2026-11-21). Своего кода для метки у Far нет (far/cmdline.cpp,
+    # CommandLine::GetPrompt), но в формате он сначала подставляет переменные
+    # окружения, потом коды $; цвета - из самого формата, до подстановки.
+    # (TFFEA00) - ярко-жёлтый (Material Yellow A400, как "!" в oh-my-posh),
+    # () - обычный цвет. Переменную задаёт макрос $FarPromptMacro. Type text -
+    # строковая настройка. Свой формат пользователя (не $p$g по умолчанию) не
+    # трогается - Keep; тогда и UsePromptFormat не включается (Needs).
+    Prompt      = @{ Key = 'Cmdline'; Name = 'PromptFormat'; Type = 'text'; Default = '$p$g'; Value = '(TFFEA00)%WLT_FARLABEL%()$p$g'; Keep = $true
+                  Manual = 'Volume label in the Far command line: F9 > Options > Command line settings > Set command line prompt format: (TFFEA00)%WLT_FARLABEL%()$p$g' }
+    PromptOn    = @{ Key = 'Cmdline'; Name = 'UsePromptFormat'; Default = $Off; Value = $On; Needs = 'Prompt'
+                  Manual = 'Volume label in the Far command line: F9 > Options > Command line settings > [x] Set command line prompt format' }
 }
+# Значение для сообщения: число для qword, как есть для text
+function Format-FarValue { param($S, [string] $V) if ($S.Type -eq 'text') { return $V } else { return [Convert]::ToInt64($V, 16) } }
 function Enable-FarSetting {
     param($Far, $State, [string] $Id)
     $s = $FarSettings[$Id]
     $prop = "Far${Id}Before"
     if (-not $State.PSObject.Properties[$prop]) { $State | Add-Member -NotePropertyName $prop -NotePropertyValue $null }
     if ($State.$prop) { Ok "Far $($s.Key).$($s.Name) - already handled"; return }
+    if ($s.Needs -and -not $State."Far$($s.Needs)Before") { return }
+    $type = if ($s.Type) { $s.Type } else { 'qword' }
     $cur = Get-FarSetting $Far $s.Key $s.Name
     if (-not $cur) { Add-Step 50 $s.Manual; return }
     $before = if ($cur.Value) { $cur.Value } else { $s.Default }
+    if ($s.Keep -and $before -ne $s.Default -and $before -ne $s.Value) { Ok "Far $($s.Key).$($s.Name) - yours ($before), left alone"; return }
     $want = if ($s.Bit) { '{0:x16}' -f ([Convert]::ToInt64($before, 16) -bor $s.Bit) } else { $s.Value }
     if ($before -eq $want) {
-        Ok "Far $($s.Key).$($s.Name) - already $([Convert]::ToInt64($want, 16))"
-    } elseif (Set-FarSetting $Far $cur $s.Key $s.Name $want) {
-        Ok "Far $($s.Key).$($s.Name) = $([Convert]::ToInt64($want, 16))"; $script:FarDone += "$($s.Key).$($s.Name)"
+        Ok "Far $($s.Key).$($s.Name) - already $(Format-FarValue $s $want)"
+    } elseif (Set-FarSetting $Far $cur $s.Key $s.Name $want $type) {
+        Ok "Far $($s.Key).$($s.Name) = $(Format-FarValue $s $want)"; $script:FarDone += "$($s.Key).$($s.Name)"
     } else { Add-Step 50 $s.Manual; return }
     $State.$prop = $before; Save-State $State
 }
@@ -1372,8 +1389,9 @@ function Restore-FarSetting {
     # Флаг - снять только его, прочие столбцы оставить как есть
     $back = if ($s.Bit) { '{0:x16}' -f ([Convert]::ToInt64($curV, 16) -band -bnot [int64]$s.Bit) } else { $before }
     if ($curV -eq $back) { return $null }
-    if (Set-FarSetting $Far $cur $s.Key $s.Name $back) { Ok "Far $($s.Key).$($s.Name) set back to $([Convert]::ToInt64($back, 16))"; return "Far $($s.Key).$($s.Name)" }
-    Warn "Far $($s.Key).$($s.Name): could not set it back to $([Convert]::ToInt64($back, 16))"
+    $type = if ($s.Type) { $s.Type } else { 'qword' }
+    if (Set-FarSetting $Far $cur $s.Key $s.Name $back $type) { Ok "Far $($s.Key).$($s.Name) set back to $(Format-FarValue $s $back)"; return "Far $($s.Key).$($s.Name)" }
+    Warn "Far $($s.Key).$($s.Name): could not set it back to $(Format-FarValue $s $back)"
     return $null
 }
 # Настройки FarColorer тоже выгружаются Far (-export) - формат проверен на
@@ -1594,9 +1612,78 @@ Macro {
   action = function() Keys("CtrlPgUp") end;
 }
 '@
+# Метка тома в приглашении командной строки Far - отдельный файл макросов: ошибка
+# в нём не ломает Backspace и выход в папку (LuaMacro грузит файлы по одному).
+$FarPromptMacro = @'
+-- Install-LinuxTools: the volume label in the Far command line prompt, "[MYDISK] C:\path>",
+-- the label in bright yellow. The Far setting Cmdline.PromptFormat is
+-- (TFFEA00)%WLT_FARLABEL%()$p$g: Far takes the colors from the format, then expands
+-- environment variables, then the $ codes. No label, or a plugin panel: " $H" - a space
+-- and Far's backspace code, so nothing is shown and %WLT_FARLABEL% never stays unexpanded.
+local WltVar, WltNone = "WLT_FARLABEL", " $H"
+win.SetEnv(WltVar, WltNone)
+local WltFfiOk, ffi = pcall(require, "ffi")
+if WltFfiOk then
+  pcall(ffi.cdef, [[
+int GetVolumeInformationW(const uint16_t* root, uint16_t* name, unsigned long nameSize,
+  unsigned long* serial, unsigned long* maxLen, unsigned long* flags, uint16_t* fs, unsigned long fsSize);
+]])
+end
+local WltLabels, WltLast = {}, nil
+local function WltVolumeLabel(root)
+  if WltLabels[root] == nil then
+    WltLabels[root] = ""
+    local w = win.Utf8ToUtf16(root) .. "\0\0"
+    local buf = ffi.new("uint16_t[261]")
+    if ffi.C.GetVolumeInformationW(ffi.cast("const uint16_t*", w), buf, 261, nil, nil, nil, nil, 0) ~= 0 then
+      local n = 0
+      while buf[n] ~= 0 do n = n + 1 end
+      WltLabels[root] = win.Utf16ToUtf8(ffi.string(ffi.cast("const char*", buf), n * 2))
+    end
+  end
+  return WltLabels[root]
+end
+local function WltPathRoot(path)
+  local d = path:match("^(%a:)")
+  if d then return d .. "\\" end
+  local u = path:match("^(\\\\[^\\]+\\[^\\]+)")
+  if u then return u .. "\\" end
+end
+local function WltUpdate()
+  if not WltFfiOk or not Area.Shell then return end
+  local label = ""
+  if not APanel.Plugin then
+    local root = WltPathRoot(APanel.Path)
+    if root then
+      local ok, l = pcall(WltVolumeLabel, root)
+      if ok and l then label = l end
+    end
+  end
+  -- $ in a label would be read as a Far prompt code: $$ is not one, so drop it
+  local v = (label ~= "") and ("[" .. label:gsub("%$", "") .. "] ") or WltNone
+  if v ~= WltLast then
+    WltLast = v
+    win.SetEnv(WltVar, v)
+    far.AdvControl(far.Flags.ACTL_REDRAWALL)
+  end
+end
+Event {
+  group = "FolderChanged";
+  description = "Install-LinuxTools: volume label in the command line prompt";
+  action = WltUpdate;
+}
+-- Tab or a mouse click to the other panel changes no folder; the next key or mouse
+-- event (the Tab key going up, a mouse move) puts the right label in.
+Event {
+  group = "ConsoleInput";
+  description = "Install-LinuxTools: volume label after a panel switch";
+  action = function() WltUpdate() end;
+}
+'@
 $FarBegin = '# >>> Install-LinuxTools: far opens and leaves in the current folder >>>'
 $FarEnd   = '# <<< Install-LinuxTools: far <<<'
-function Get-FarMacroFile { param($Far) return (Join-Path (Split-Path -Parent $Far.Plugins) 'Macros\scripts\Install-LinuxTools.lua') }
+function Get-FarMacroFile { param($Far, [string] $Name = 'Install-LinuxTools.lua') return (Join-Path (Split-Path -Parent $Far.Plugins) "Macros\scripts\$Name") }
+$FarPromptMacroName = 'Install-LinuxTools-prompt.lua'
 function Remove-FarProfileBlock {
     foreach ($p in $Profiles) {
         if (-not (Test-Path -LiteralPath $p)) { continue }
@@ -1611,6 +1698,7 @@ function Install-FarLastDir {
     $dir = Split-Path -Parent $mf
     if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
     [IO.File]::WriteAllText($mf, $FarLastDirMacro.Replace("`r`n", "`n"))
+    [IO.File]::WriteAllText((Get-FarMacroFile $Far $FarPromptMacroName), $FarPromptMacro.Replace("`r`n", "`n"))
     $lines = @($FarBegin,
         'function far {',
         '    $f = Join-Path $env:TEMP "far-lastdir-$PID.txt"',
@@ -1636,7 +1724,10 @@ function Install-FarLastDir {
 function Remove-FarLastDir {
     param($Far, $State)
     if (-not $State.FarLastDir) { return $null }
-    if ($Far) { Remove-Item -LiteralPath (Get-FarMacroFile $Far) -Force -ErrorAction SilentlyContinue }
+    if ($Far) {
+        Remove-Item -LiteralPath (Get-FarMacroFile $Far) -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath (Get-FarMacroFile $Far $FarPromptMacroName) -Force -ErrorAction SilentlyContinue
+    }
     Remove-FarProfileBlock
     Ok 'removed: far folder hand-over (Far macro, PowerShell function)'
     return 'far folder hand-over'
