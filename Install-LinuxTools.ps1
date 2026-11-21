@@ -1331,6 +1331,14 @@ $FarSettings = [ordered]@{
     # 1 = EXPAND_NEWTABS: новая табуляция - пробелами; старые табуляции в файле не трогаются
     ExpandTabs  = @{ Key = 'Editor'; Name = 'ExpandTabs'; Default = $Off; Value = $On
                   Manual = 'Editor Tab as spaces: F9 > Options > Editor settings > Expand tabs: Expand newly entered tabs to spaces' }
+    # Меню дисков (Alt+F1/Alt+F2): метка тома рядом с буквой (просьба
+    # пользователя 2026-11-21). DriveMenuMode - набор флагов (far/config.hpp,
+    # DRIVE_SHOW_*), по умолчанию TYPE|PLUGINS|SIZE_FLOAT|CDROM = 0x1C1. Bit -
+    # включить только этот флаг (DRIVE_SHOW_LABEL = 4), остальные столбцы
+    # пользователя не трогать; откат снимает только его. В самом меню то же
+    # даёт Ctrl+3 (ещё раз - имя из Проводника, третий раз - скрыть).
+    DriveLabel  = @{ Key = 'System'; Name = 'DriveMenuMode'; Default = '00000000000001c1'; Bit = 4
+                  Manual = 'Drive menu volume labels in Far: Alt+F1, then Ctrl+3 (or F9 there > [x] Show label), then Shift+F9' }
 }
 function Enable-FarSetting {
     param($Far, $State, [string] $Id)
@@ -1341,10 +1349,11 @@ function Enable-FarSetting {
     $cur = Get-FarSetting $Far $s.Key $s.Name
     if (-not $cur) { Add-Step 50 $s.Manual; return }
     $before = if ($cur.Value) { $cur.Value } else { $s.Default }
-    if ($before -eq $s.Value) {
-        Ok "Far $($s.Key).$($s.Name) - already $([int]('0x' + $s.Value))"
-    } elseif (Set-FarSetting $Far $cur $s.Key $s.Name $s.Value) {
-        Ok "Far $($s.Key).$($s.Name) = $([int]('0x' + $s.Value))"; $script:FarDone += "$($s.Key).$($s.Name)"
+    $want = if ($s.Bit) { '{0:x16}' -f ([Convert]::ToInt64($before, 16) -bor $s.Bit) } else { $s.Value }
+    if ($before -eq $want) {
+        Ok "Far $($s.Key).$($s.Name) - already $([Convert]::ToInt64($want, 16))"
+    } elseif (Set-FarSetting $Far $cur $s.Key $s.Name $want) {
+        Ok "Far $($s.Key).$($s.Name) = $([Convert]::ToInt64($want, 16))"; $script:FarDone += "$($s.Key).$($s.Name)"
     } else { Add-Step 50 $s.Manual; return }
     $State.$prop = $before; Save-State $State
 }
@@ -1352,11 +1361,19 @@ function Restore-FarSetting {
     param($Far, $State, [string] $Id)
     $s = $FarSettings[$Id]
     $before = $State."Far${Id}Before"
-    if (-not $before -or $before -eq $s.Value) { return $null }
+    if (-not $before) { return $null }
+    if ($s.Bit) {
+        # Флаг был у пользователя ещё до скрипта - не снимать
+        if ([Convert]::ToInt64($before, 16) -band $s.Bit) { return $null }
+    } elseif ($before -eq $s.Value) { return $null }
     $cur = Get-FarSetting $Far $s.Key $s.Name
-    if (-not $cur -or $cur.Value -eq $before) { return $null }
-    if (Set-FarSetting $Far $cur $s.Key $s.Name $before) { Ok "Far $($s.Key).$($s.Name) set back to $([int]('0x' + $before))"; return "Far $($s.Key).$($s.Name)" }
-    Warn "Far $($s.Key).$($s.Name): could not set it back to $([int]('0x' + $before))"
+    if (-not $cur) { return $null }
+    $curV = if ($cur.Value) { $cur.Value } else { $s.Default }
+    # Флаг - снять только его, прочие столбцы оставить как есть
+    $back = if ($s.Bit) { '{0:x16}' -f ([Convert]::ToInt64($curV, 16) -band -bnot [int64]$s.Bit) } else { $before }
+    if ($curV -eq $back) { return $null }
+    if (Set-FarSetting $Far $cur $s.Key $s.Name $back) { Ok "Far $($s.Key).$($s.Name) set back to $([Convert]::ToInt64($back, 16))"; return "Far $($s.Key).$($s.Name)" }
+    Warn "Far $($s.Key).$($s.Name): could not set it back to $([Convert]::ToInt64($back, 16))"
     return $null
 }
 # Настройки FarColorer тоже выгружаются Far (-export) - формат проверен на
