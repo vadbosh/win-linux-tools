@@ -9,7 +9,7 @@
         { "type": "text", "style": "plain", "foreground": "#4CAF50", "template": "┌──" },
         { "type": "session", "style": "plain", "foreground": "#4CAF50", "template": "{{ .UserName }}<#42A5F5>@</>{{ .HostName }} " },
         { "type": "shell", "style": "plain", "foreground": "#FF9100", "template": "<b>~{{ .Name }}</b> ", "options": { "mapped_shell_names": { "powershell": "pwsh" } } },
-        { "type": "path", "style": "plain", "foreground": "#3DDC84", "template": "[{{ .Path }}] ", "options": { "style": "full" } },
+        { "type": "path", "style": "plain", "foreground": "#3DDC84", "template": "[{{ if .Env.WLT_VOLLABEL }}<b><#FF9100>{{ .Env.WLT_VOLLABEL }}</></b> {{ end }}{{ .Path }}] ", "options": { "style": "full" } },
         { "type": "git", "style": "plain", "foreground": "#B39DDB",
           "template": "| {{ .HEAD }}{{ if .BranchStatus }} {{ .BranchStatus }}{{ end }}{{ if .Working.Changed }}<#FF80AB> *{{ .Working.String }}</>{{ end }}{{ if .Staging.Changed }}<#69F0AE> +{{ .Staging.String }}</>{{ end }} ",
           "options": { "branch_icon": "", "branch_identical_icon": "", "branch_ahead_icon": "↑", "branch_behind_icon": "↓", "branch_gone_icon": "x",

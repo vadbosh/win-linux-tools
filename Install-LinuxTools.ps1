@@ -2757,7 +2757,26 @@ function Install-OhMyPosh {
             "String = `"`$e[38;2;128;203;196m`"; Variable = `"`$e[38;2;105;240;174m`"; Number = `"`$e[38;2;244;143;177m`"; " +
             "Keyword = `"`$e[38;2;100;181;246m`"; Type = `"`$e[38;2;206;147;216m`"; Member = `"`$e[38;2;224;224;224m`"; " +
             "Comment = `"`$e[38;2;129;199;132m`"; Default = `"`$e[38;2;238;238;238m`"; InlinePrediction = `"`$e[38;2;120;144;156m`" } } catch { } }"
-    $lines = @($OmpBegin, "if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) { oh-my-posh init pwsh --config '$cfg' | Invoke-Expression }", $psrl, $OmpEnd)
+    # Метка тома в приглашении, "[MYDISK D:\]" (просьба пользователя
+    # 2026-11-21): oh-my-posh перед каждым приглашением зовёт Set-PoshContext
+    # (docs: configuration/templates), тема берёт .Env.WLT_VOLLABEL. Метка -
+    # из DriveInfo, один раз на диск за окно; UNC и не файловые пути - без
+    # метки. Пустое значение убирает переменную, тема тогда метку не пишет.
+    $ctx = @(
+        '$global:WltVolLabels = @{}',
+        'function global:Set-WltPoshContext([bool] $originalStatus) {',
+        '    $l = ''''',
+        '    if ($PWD.Provider.Name -eq ''FileSystem'') {',
+        '        $r = [IO.Path]::GetPathRoot($PWD.ProviderPath)',
+        '        if ($r -match ''^[A-Za-z]:\\$'') {',
+        '            if (-not $global:WltVolLabels.ContainsKey($r)) { try { $global:WltVolLabels[$r] = ([IO.DriveInfo]::new($r)).VolumeLabel } catch { $global:WltVolLabels[$r] = '''' } }',
+        '            $l = $global:WltVolLabels[$r]',
+        '        }',
+        '    }',
+        '    $env:WLT_VOLLABEL = $l',
+        '}',
+        'New-Alias -Name Set-PoshContext -Value Set-WltPoshContext -Scope Global -Force')
+    $lines = @($OmpBegin, "if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) { oh-my-posh init pwsh --config '$cfg' | Invoke-Expression }") + $ctx + @($psrl, $OmpEnd)
     Remove-OmpBlock
     foreach ($p in $Profiles) {
         $pd = Split-Path -Parent $p
